@@ -46,7 +46,7 @@ It is a reusable layer between an AI provider and an existing relational databas
 - **Bring your own model:** OpenRouter, Google Gemini, DeepSeek, Groq, Cerebras, or Ollama.
 - **Schema-aware agent** with tools for listing tables, describing tables, discovering foreign keys, running queries, and `EXPLAIN`.
 - **Safety by default:** configurable row, byte, timeout, and agent-step limits; capped SQL attempts; foreign-key discovery required before any SQL runs.
-- **Optional `sql-ai.md`** for business rules and vocabulary the model cannot infer from the schema.
+- **Optional `dbask.md`** for business rules and vocabulary the model cannot infer from the schema.
 - **Three response modes:** natural, technical, and debug.
 - **`validate` command** that checks your config, database, foreign keys, and AI provider before you ask anything.
 - **In-process schema cache** so repeated lookups in a run don't hit the database twice.
@@ -100,7 +100,7 @@ npx @negusdev/dbask validate
 [ok]   Database connection: Connected to 127.0.0.1:3306/mydb; 27 tables visible.
 [ok]   Foreign keys: 42 declared relationships found.
 [ok]   AI provider: openrouter answered using model openai/gpt-4o-mini.
-[skip] Business context (sql-ai.md): No sql-ai.md found. This is optional.
+[skip] Business context (dbask.md): No dbask.md found. This is optional.
 ```
 
 Use `--skip-provider` to check only the configuration and database, without contacting the AI provider.
@@ -195,7 +195,7 @@ Start from the `.env.example` values and tune against your own database. Higher 
 
 ## Optional database context
 
-Place a `sql-ai.md` file in the working directory to explain business terms and rules that aren't obvious from table and column names. It supplements schema discovery; it does not replace it.
+Place a `dbask.md` file in the working directory to explain business terms and rules that aren't obvious from table and column names. It supplements schema discovery; it does not replace it.
 
 ```markdown
 # Database Context
@@ -212,7 +212,7 @@ parents, teachers, classes, enrollments, and payments.
 - Cancelled payments should not be included in revenue calculations.
 ```
 
-Keep the rules accurate and current. Incorrect or ambiguous context can produce confidently wrong answers even when the generated SQL is valid. A starter template ships as [`sql-ai.example.md`](./sql-ai.example.md).
+Keep the rules accurate and current. Incorrect or ambiguous context can produce confidently wrong answers even when the generated SQL is valid. A starter template ships as [`dbask.example.md`](./dbask.example.md).
 
 ## TypeScript SDK
 
@@ -345,7 +345,7 @@ src/
   ai/             Provider factory and provider interfaces
   commands/       CLI commands, including the init wizard
   config/         Environment and .env loading
-  context/        Optional business context loading (sql-ai.md)
+  context/        Optional business context loading (dbask.md)
   core/agent/     Agent loop and observability interfaces
   core/tools/     Schema and SQL tools exposed to the agent
   database/       Database adapter interface, MySQL and PostgreSQL implementations
@@ -380,7 +380,7 @@ tests/            Automated tests
 
 - Run with `--mode technical` or `--mode debug` to inspect the SQL and tool activity.
 - Inspect the relevant table definitions and foreign keys.
-- Review `sql-ai.md` for outdated or ambiguous rules.
+- Review `dbask.md` for outdated or ambiguous rules.
 - Narrow the question with dates, statuses, or business definitions.
 - Verify the generated SQL and results directly against the database.
 - Add a representative case to `evals/` if the failure is repeatable.
@@ -405,7 +405,7 @@ For bugs involving incorrect answers, include:
 
 - The question you asked (or a close paraphrase)
 - The `--mode debug` output
-- The relevant table definitions and `sql-ai.md` content, if any
+- The relevant table definitions and `dbask.md` content, if any
 - The provider and model used
 
 Do **not** include `.env` contents, credentials, or unfiltered production data in issue reports.
@@ -420,4 +420,4 @@ Released under the [ISC License](./LICENSE).
 - [npm](https://www.npmjs.com/package/@negusdev/dbask)
 - [Issues](https://github.com/NegusDev/dbask/issues)
 - [Evaluation guide](./evals/README.md)
-- [Business context template](./sql-ai.example.md)
+- [Business context template](./dbask.example.md)
