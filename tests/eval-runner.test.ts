@@ -2,11 +2,16 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  countPlanEvents,
+  formatPlan,
+  markdownReport,
   repeatSummary,
   selectCases,
   terminateChild,
   type CaseResult,
   type CheckResult,
+  type ToolEvent,
+  verdictOf,
 } from '../evals/runners/run-benchmark.js';
 
 /** A killed process that nobody has reaped yet is a zombie; it is not running. */
@@ -85,6 +90,7 @@ function result(id: string, eq: CheckResult['status'], opts: Partial<CaseResult>
     exitCode: 0,
     executionSuccess: true,
     timedOut: false,
+    plan: null,
     infraError: false,
     attempts: 1,
     durationMs: 1000,
@@ -164,5 +170,84 @@ describe('repeatSummary', () => {
     expect(md).toContain('Commit: abcdef12');
     expect(md).toContain('Max agent steps: 8');
     expect(md).toContain('Query plan: on');
+  });
+});
+
+describe('plan counters', () => {
+  const end = (name: string, success: boolean, error?: string): ToolEvent => ({
+    source: 'dbask',
+    type: 'tool-end',
+    name,
+    success,
+    ...(error ? { error } : {}),
+  });
+
+  it('is null when the plan tool was never used', () => {
+    expect(countPlanEvents([end('list_tables', true), end('execute_query', true)])).toBeNull();
+  });
+
+  it('counts submissions, rejections and SQL blocked for leaving the plan', () => {
+    const counters = countPlanEvents([
+      end('submit_query_plan', false, 'Plan rejected: Unknown table: foo.'),
+      end('submit_query_plan', true),
+      end(
+        'execute_query',
+        false,
+        'The SQL reads users, which the accepted plan does not list. Submit an updated plan.',
+      ),
+      end('execute_query', false, 'Syntax error near FROM'),
+      end('submit_query_plan', true),
+      end('execute_query', true),
+    ]);
+
+    expect(counters).toEqual({ submissions: 3, accepted: 2, rejected: 1, sqlMismatches: 1 });
+  });
+
+  it('formats a compact cell, with a dash when plans were off', () => {
+    expect(formatPlan(null)).toBe('-');
+    expect(formatPlan({ submissions: 2, accepted: 1, rejected: 1, sqlMismatches: 0 })).toBe(
+      '2 sub / 1 ok / 1 rej / 0 blocked',
+    );
+  });
+});
+
+describe('timeouts', () => {
+  const meta = { commit: 'abcdef1234', maxSteps: '8', queryPlan: 'on', timeoutMs: 90_000, retries: 2 };
+  const stalled = (id: string) =>
+    result(id, 'failed', { timedOut: true, executionSuccess: false, exitCode: null });
+
+  it('gives a timed-out case its own verdict', () => {
+    expect(verdictOf(stalled('E02'))).toBe('timeout');
+    expect(verdictOf(result('E02', 'failed'))).toBe('failed');
+  });
+
+  it('shows timeouts and plan totals in the report', () => {
+    const md = markdownReport(
+      't',
+      'ds',
+      [
+        stalled('E02'),
+        result('E03', 'passed', { plan: { submissions: 2, accepted: 1, rejected: 1, sqlMismatches: 1 } }),
+      ],
+      meta,
+    );
+
+    expect(md).toContain('| Timed out (scored as failures) | 1 — killed at 90000 ms');
+    expect(md).toContain('| Plan submissions | 2 (1 accepted, 1 rejected) |');
+    expect(md).toContain('| SQL blocked for leaving the plan | 1 |');
+    expect(md).toMatch(/\| E02 \| c \| timeout \|/);
+    expect(md).toContain('2 sub / 1 ok / 1 rej / 1 blocked');
+  });
+
+  it('omits plan rows when plans were off', () => {
+    const md = markdownReport('t', 'ds', [result('E01', 'passed')], meta);
+    expect(md).not.toContain('Plan submissions');
+    expect(md).toContain('| Timed out (scored as failures) | 0 |');
+  });
+
+  it('lists a timeout separately from failures in the repeat summary', () => {
+    const md = repeatSummary('t', 'ds', [[result('E02', 'passed')], [stalled('E02')]], meta);
+    expect(md).toContain('| E02 | c | passed, timeout | 1/2 |');
+    expect(md).toContain('Timed out (scored as failures) | 0 | 1');
   });
 });

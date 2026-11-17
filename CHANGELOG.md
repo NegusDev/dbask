@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com), and the project uses [Semantic Versioning](https://semver.org) (0.x: minor versions may change behavior).
 
+## [Unreleased]
+
+### Development
+- Benchmark: corrected the reference answer for E23 (it required id columns the question never asks for) and switched E08 and E09 to value comparison so harmless alias differences no longer fail them.
+- Benchmark runner: a case killed at the time limit now shows as `timeout` (its own row in the report summary and its own verdict in `--repeat` summaries) instead of looking like a wrong answer; it is still scored as a failure. Reports also count plan submissions, rejections and SQL blocked for leaving the plan, per case and in total, and the JSON report carries a `plan` object for each case.
+
 ## [0.1.9] - 2026-11-14
 
 ### Changed
@@ -34,7 +40,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - PostgreSQL support (tables, partitioned tables and schemas; views are not listed yet).
 - `validate` command to check configuration, database connection, foreign keys, AI provider and `sql-ai.md`.
 
-For earlier releases, see the [commit history](https://github.com/NegusDev/sql-ai-harness/commits/main) and the npm release list.
+For earlier releases, see the [commit history](https://github.com/NegusDev/dbask/commits/dev) and the npm release list.
 
-[0.1.8]: https://github.com/NegusDev/sql-ai-harness/compare/v0.1.7...v0.1.8
-[0.1.7]: https://github.com/NegusDev/sql-ai-harness/releases/tag/v0.1.7
+[Unreleased]: https://github.com/NegusDev/dbask/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/NegusDev/dbask/compare/v0.1.8...v0.1.9
+[0.1.8]: https://github.com/NegusDev/dbask/compare/v0.1.7...v0.1.8
+[0.1.7]: https://github.com/NegusDev/dbask/releases/tag/v0.1.7
