@@ -2,7 +2,7 @@
 
 <!--
 This file is optional.
-Rename it to `sql-ai.md` if you want to provide business/domain context
+Rename it to `dbask.md` if you want to provide business/domain context
 for the connected database.
 -->
 
