@@ -42,7 +42,7 @@ describe('Agent database context', () => {
     const agent = new Agent(provider, context, {
       databaseContext: {
         content: 'This database belongs to a school management system.',
-        source: '/tmp/sql-ai.md',
+        source: '/tmp/dbask.md',
       },
     });
 

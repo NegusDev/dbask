@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDatabaseContext } from '../src/context/db-context.js';
 
 describe('Database context', () => {
-  it('returns empty context when sql-ai.md does not exist', async () => {
+  it('returns empty context when dbask.md does not exist', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'sql-ai-context-'));
 
     try {
