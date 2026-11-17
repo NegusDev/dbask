@@ -4,7 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- **PostgreSQL views.** `list_tables` now includes views and materialized views, and `describe_table` describes them. Each entry carries `kind` (`table`, `view` or `materialized_view`); `TableInfo.kind` is optional and absent for MySQL, which still lists base tables only. Writes through a view are still refused by the read-only transaction.
+
 ### Development
+- CI now also runs typecheck, tests, build and a CLI smoke test (`pnpm smoke`: `--version`, `--help`, unknown command and option, `ask` without a question, `validate` without configuration) on macOS and Windows, and the smoke test on Linux. `.gitattributes` keeps LF line endings on every platform.
+- PostgreSQL edition of the forex evaluation dataset (`schema.postgres.sql`), a test that runs every reference query against it, and the database driver in report headers. See `evals/README.md`.
 - Benchmark: corrected the reference answer for E23 (it required id columns the question never asks for) and switched E08 and E09 to value comparison so harmless alias differences no longer fail them.
 - Benchmark runner: a case killed at the time limit now shows as `timeout` (its own row in the report summary and its own verdict in `--repeat` summaries) instead of looking like a wrong answer; it is still scored as a failure. Reports also count plan submissions, rejections and SQL blocked for leaving the plan, per case and in total, and the JSON report carries a `plan` object for each case.
 
