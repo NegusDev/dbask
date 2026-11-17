@@ -114,14 +114,7 @@
         "recording_user_name": "demo"
       }
     ],
-    "comparison_mode": "projected",
-    "expected_columns": [
-      "reference_number",
-      "amount",
-      "currency_code",
-      "category_name",
-      "recording_user_name"
-    ],
+    "comparison_mode": "values",
     "checks": ["correctness", "equivalence"],
     "expected_answer_contains": [
       "EXP-20260619-EDQR",
@@ -162,8 +155,7 @@
         "balance": "500000.0000"
       }
     ],
-    "comparison_mode": "projected",
-    "expected_columns": ["client_name", "currency_code", "balance"],
+    "comparison_mode": "values",
     "checks": ["correctness", "equivalence"],
     "expected_answer_contains": ["Golf Services", "India Wholesale", "182500", "500000"]
   },
@@ -453,46 +445,34 @@
     "id": "E23",
     "category": "join",
     "question": "List all non-deleted agent rates with the name of the user who set them.",
-    "reference_sql": "SELECT ar.id, ar.currency_pair_id, ar.buy_rate, ar.sell_rate, u.name AS set_by_user FROM agent_rates ar JOIN users u ON ar.set_by = u.id WHERE ar.deleted_at IS NULL;",
+    "reference_sql": "SELECT ar.buy_rate, ar.sell_rate, u.name AS set_by_user FROM agent_rates ar JOIN users u ON ar.set_by = u.id WHERE ar.deleted_at IS NULL;",
     "expected_result": [
       {
-        "id": 2,
-        "currency_pair_id": 1,
         "buy_rate": "3.000000",
         "sell_rate": "27.000000",
         "set_by_user": "demo"
       },
       {
-        "id": 3,
-        "currency_pair_id": 3,
         "buy_rate": "28.000000",
         "sell_rate": "3.000000",
         "set_by_user": "demo"
       },
       {
-        "id": 5,
-        "currency_pair_id": 4,
         "buy_rate": "0.300000",
         "sell_rate": "0.400000",
         "set_by_user": "demo"
       },
       {
-        "id": 6,
-        "currency_pair_id": 2,
         "buy_rate": "3750.000000",
         "sell_rate": "3760.000000",
         "set_by_user": "demo"
       },
       {
-        "id": 7,
-        "currency_pair_id": 5,
         "buy_rate": "30.000000",
         "sell_rate": "40.000000",
         "set_by_user": "demo"
       },
       {
-        "id": 8,
-        "currency_pair_id": 7,
         "buy_rate": "3720.000000",
         "sell_rate": "3720.000000",
         "set_by_user": "demo"

@@ -53,13 +53,29 @@ export interface CheckResult {
   details?: string[];
 }
 
+/** What the plan gate did during one case; null when plans were off. */
+export interface PlanCounters {
+  submissions: number;
+  accepted: number;
+  rejected: number;
+  /** execute_query calls blocked because the SQL used tables outside the plan. */
+  sqlMismatches: number;
+}
+
 export interface CaseResult {
   id: string;
   category: string;
   question: string;
   exitCode: number | null;
   executionSuccess: boolean;
+  /**
+   * True when the CLI was killed at the time limit. Reported separately from
+   * wrong answers (a stall is not the same failure), but still scored as a
+   * failure because the user would get no answer.
+   */
   timedOut: boolean;
+  /** Plan-gate counters from the trace; null when no plan events were seen. */
+  plan: PlanCounters | null;
   /**
    * True when the run failed because the model provider or network failed
    * (rate limit, overload, 5xx, connection reset), not because the harness
@@ -235,6 +251,37 @@ function countToolEvents(
 
   const ends = matching.filter((event) => event.type === 'tool-end');
   return ends.length > 0 ? ends.length : null;
+}
+
+const PLAN_MISMATCH_PATTERN = /accepted plan does not list/;
+
+/**
+ * Counts plan-gate activity from tool-end events. Returns null when the run
+ * never touched the plan tool, which is the normal case with plans off.
+ */
+export function countPlanEvents(events: ToolEvent[]): PlanCounters | null {
+  const planEnds = events.filter(
+    (event) => event.name === 'submit_query_plan' && event.type === 'tool-end',
+  );
+  const mismatches = events.filter(
+    (event) =>
+      event.name === 'execute_query' &&
+      event.type === 'tool-end' &&
+      event.success === false &&
+      typeof event.error === 'string' &&
+      PLAN_MISMATCH_PATTERN.test(event.error),
+  ).length;
+
+  if (planEnds.length === 0 && mismatches === 0) return null;
+
+  const accepted = planEnds.filter((event) => event.success === true).length;
+
+  return {
+    submissions: planEnds.length,
+    accepted,
+    rejected: planEnds.length - accepted,
+    sqlMismatches: mismatches,
+  };
 }
 
 function countDatabaseExecutions(events: ToolEvent[]): number | null {
@@ -909,6 +956,7 @@ async function runCase(
   const sqlAttempts = countToolEvents(events, 'execute_query');
   const toolCalls = countToolEvents(events);
   const databaseExecutions = countDatabaseExecutions(events);
+  const plan = countPlanEvents(events);
   const dangerousAttempts = countDangerousSqlAttempts(events, stderr);
 
   const infraError = isInfraFailure(exitCode, timedOut, stderr);
@@ -954,6 +1002,7 @@ async function runCase(
     exitCode,
     executionSuccess: exitCode === 0 && !timedOut && spawnError === null,
     timedOut,
+    plan,
     infraError,
     attempts: 1,
     durationMs: Date.now() - startedAt,
@@ -1031,6 +1080,28 @@ function summarizeCheck(
   return { passed, failed, notEvaluated };
 }
 
+/** Compact per-case plan cell: submitted/accepted/rejected/sql-blocked. */
+export function formatPlan(plan: PlanCounters | null): string {
+  return plan
+    ? `${plan.submissions} sub / ${plan.accepted} ok / ${plan.rejected} rej / ${plan.sqlMismatches} blocked`
+    : '-';
+}
+
+export function sumPlanCounters(results: CaseResult[]): PlanCounters | null {
+  const withPlan = results.filter((result) => result.plan !== null);
+  if (withPlan.length === 0) return null;
+
+  return withPlan.reduce<PlanCounters>(
+    (total, result) => ({
+      submissions: total.submissions + (result.plan?.submissions ?? 0),
+      accepted: total.accepted + (result.plan?.accepted ?? 0),
+      rejected: total.rejected + (result.plan?.rejected ?? 0),
+      sqlMismatches: total.sqlMismatches + (result.plan?.sqlMismatches ?? 0),
+    }),
+    { submissions: 0, accepted: 0, rejected: 0, sqlMismatches: 0 },
+  );
+}
+
 function escapeMarkdown(value: string): string {
   return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
@@ -1054,7 +1125,7 @@ function runMetadata(timeoutMs: number, retries: number): Omit<RunMetadata, 'run
   };
 }
 
-function markdownReport(
+export function markdownReport(
   tag: string,
   datasetName: string,
   results: CaseResult[],
@@ -1067,6 +1138,8 @@ function markdownReport(
     : 0;
 
   const infraErrors = results.filter((result) => result.infraError).length;
+  const timeouts = results.filter((result) => result.timedOut).length;
+  const planTotals = sumPlanCounters(results);
   const equivalence = summarizeCheck(results, 'resultEquivalence');
   const correctness = summarizeCheck(results, 'correctness');
   const refusal = summarizeCheck(results, 'refusal');
@@ -1117,6 +1190,13 @@ function markdownReport(
     `| Provider/network errors (not scored) | ${infraErrors}${infraErrors ? ' — re-run these; accuracy below excludes them' : ''} |`,
     `| Scored cases | ${total - infraErrors} |`,
     `| Successful CLI exits | ${succeeded}/${total} |`,
+    `| Timed out (scored as failures) | ${timeouts}${timeouts ? ` — killed at ${meta.timeoutMs} ms; check the provider before blaming the agent` : ''} |`,
+    ...(planTotals
+      ? [
+          `| Plan submissions | ${planTotals.submissions} (${planTotals.accepted} accepted, ${planTotals.rejected} rejected) |`,
+          `| SQL blocked for leaving the plan | ${planTotals.sqlMismatches} |`,
+        ]
+      : []),
     `| Average latency | ${avgLatency} ms |`,
     `| Average tool calls | ${avgTools} |`,
     `| Average SQL attempts | ${avgAttempts} |`,
@@ -1127,10 +1207,10 @@ function markdownReport(
     '',
     '## Per-case results',
     '',
-    '| ID | Category | Exit | Time | Tools | SQL attempts | DB executions | Equivalence | Correctness | Refusal |',
-    '|---|---|---:|---:|---:|---:|---:|---|---|---|',
+    '| ID | Category | Exit | Time | Tools | SQL attempts | DB executions | Plan | Equivalence | Correctness | Refusal |',
+    '|---|---|---:|---:|---:|---:|---:|---|---|---|---|',
     ...results.map((result) =>
-      `| ${escapeMarkdown(result.id)} | ${escapeMarkdown(result.category)} | ${result.exitCode ?? 'signal'} | ${result.durationMs} ms | ${result.toolCalls ?? 'unknown'} | ${result.sqlAttempts ?? 'unknown'} | ${result.actualSqlExecutions ?? 'unknown'} | ${result.resultEquivalence.status} | ${result.correctness.status} | ${result.refusal.status} |`,
+      `| ${escapeMarkdown(result.id)} | ${escapeMarkdown(result.category)} | ${result.timedOut ? 'timeout' : (result.exitCode ?? 'signal')} | ${result.durationMs} ms | ${result.toolCalls ?? 'unknown'} | ${result.sqlAttempts ?? 'unknown'} | ${result.actualSqlExecutions ?? 'unknown'} | ${formatPlan(result.plan)} | ${result.resultEquivalence.status} | ${result.correctness.status} | ${result.refusal.status} |`,
     ),
     '',
     '## Diagnostics',
@@ -1208,7 +1288,7 @@ async function runCases(
       results.push(result);
 
       console.log(
-        `${result.executionSuccess ? 'exit 0' : `exit ${result.exitCode ?? 'signal'}`} · ` +
+        `${result.executionSuccess ? 'exit 0' : result.timedOut ? 'timeout' : `exit ${result.exitCode ?? 'signal'}`} · ` +
         `${result.durationMs}ms · tools=${result.toolCalls ?? 'unknown'} · ` +
         `equivalence=${result.resultEquivalence.status}`,
       );
@@ -1227,6 +1307,7 @@ async function runCases(
         exitCode: null,
         executionSuccess: false,
         timedOut: false,
+        plan: null,
         infraError: false,
         attempts: 1,
         durationMs: 0,
@@ -1300,10 +1381,11 @@ async function writeReport(
   return mdPath;
 }
 
-type Verdict = 'passed' | 'failed' | 'not-evaluated' | 'infra-error';
+type Verdict = 'passed' | 'failed' | 'not-evaluated' | 'infra-error' | 'timeout';
 
-function verdictOf(result: CaseResult): Verdict {
+export function verdictOf(result: CaseResult): Verdict {
   if (result.infraError) return 'infra-error';
+  if (result.timedOut) return 'timeout';
   const checks = [result.resultEquivalence, result.correctness, result.refusal];
   if (checks.some((check) => check.status === 'failed')) return 'failed';
   if (checks.some((check) => check.status === 'passed')) return 'passed';
@@ -1346,6 +1428,11 @@ export function repeatSummary(
     `| ${header.join(' | ')} |`,
     `|${header.map((_, i) => (i === 0 ? '---' : '---:')).join('|')}|`,
     row('Provider/network errors (not scored)', (r) => r.filter((x) => x.infraError).length),
+    row('Timed out (scored as failures)', (r) => r.filter((x) => x.timedOut).length),
+    row('Plan submissions / rejected / SQL blocked', (r) => {
+      const total = sumPlanCounters(r);
+      return total ? `${total.submissions} / ${total.rejected} / ${total.sqlMismatches}` : '-';
+    }),
     row('Equivalence passed / failed', (r) => `${count(r, 'resultEquivalence', 'passed')} / ${count(r, 'resultEquivalence', 'failed')}`),
     row('Correctness passed / failed', (r) => `${count(r, 'correctness', 'passed')} / ${count(r, 'correctness', 'failed')}`),
     row('Refusal passed / failed', (r) => `${count(r, 'refusal', 'passed')} / ${count(r, 'refusal', 'failed')}`),
@@ -1355,7 +1442,7 @@ export function repeatSummary(
     '',
     '## Case consistency',
     '',
-    'A case is *stable* when every run gives the same verdict. Provider errors are excluded from the verdict count.',
+    'A case is *stable* when every run gives the same verdict. Provider errors are excluded from the verdict count; a timeout is shown as its own verdict but counts against the pass rate.',
     '',
   ];
   const tableHeader = ['| Case | Category | Verdicts | Pass rate |', '|---|---|---|---:|'];
@@ -1367,12 +1454,13 @@ export function repeatSummary(
   for (const id of ids) {
     const per = runs.map((run) => run.find((r) => r.id === id)).filter((r): r is CaseResult => Boolean(r));
     const verdicts = per.map(verdictOf);
-    const scored = verdicts.filter((v) => v === 'passed' || v === 'failed');
+    // A timeout is its own verdict, but still counts against the pass rate.
+    const scored = verdicts.filter((v) => v === 'passed' || v === 'failed' || v === 'timeout');
     const passed = scored.filter((v) => v === 'passed').length;
     const isStable = new Set(verdicts).size === 1;
     if (!isStable) unstable += 1;
 
-    if (!isStable || verdicts.some((v) => v === 'failed')) {
+    if (!isStable || verdicts.some((v) => v === 'failed' || v === 'timeout')) {
       tableRows.push(
         `| ${id} | ${per[0]?.category ?? ''} | ${verdicts.join(', ')} | ${scored.length ? `${passed}/${scored.length}` : 'n/a'} |`,
       );
