@@ -1,0 +1,3 @@
+# Keep line endings as LF on every platform (CRLF would break the CLI shebang
+# and fixtures on Windows checkouts).
+* text=auto eol=lf

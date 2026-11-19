@@ -40,7 +40,8 @@
     "test": "vitest run",
     "eval": "tsx evals/runners/run-benchmark.ts",
     "prepack": "pnpm run build",
-    "pack:check": "pnpm pack --dry-run"
+    "pack:check": "pnpm pack --dry-run",
+    "smoke": "node scripts/smoke-cli.mjs"
   },
   "keywords": [
     "text-to-sql",

@@ -28,6 +28,11 @@ export interface ModelProvider {
 export interface TableInfo {
   name: string;
   schema?: string;
+  /**
+   * What the relation is. Set by adapters that list more than base tables
+   * (PostgreSQL lists views and materialized views); absent means a table.
+   */
+  kind?: 'table' | 'view' | 'materialized_view';
 }
 
 export interface ColumnInfo {

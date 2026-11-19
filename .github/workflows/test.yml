@@ -80,5 +80,51 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Smoke-test the built CLI
+        run: pnpm smoke
+
       - name: Check package contents
         run: pnpm pack:check
+
+  # The terminal UI, process handling and paths differ by platform, so the
+  # same checks run on macOS and Windows. The PostgreSQL integration tests need
+  # a service container (Linux only) and skip themselves here.
+  platforms:
+    name: ${{ matrix.os }}, Node 22
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run test suite
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Smoke-test the built CLI
+        run: pnpm smoke
