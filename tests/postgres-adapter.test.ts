@@ -54,6 +54,8 @@ describeDb('PostgresAdapter (integration)', () => {
       VALUES ('Ann', '2026-05-11', '2026-05-11 09:51:43', '2026-05-11 09:51:43+00', 12.50,
               9007199254740993, ARRAY['a','b'], '{"k": [1,2]}', '\\xdeadbeef');
       INSERT INTO public.hit_customers (name) SELECT 'c' || g FROM generate_series(1, 50) g;
+      CREATE VIEW public.hit_ann AS SELECT id, name FROM public.hit_customers WHERE name = 'Ann';
+      CREATE MATERIALIZED VIEW harness_it.hit_names AS SELECT name FROM public.hit_customers WHERE id <= 2;
     `);
     adapter = new PostgresAdapter({ ...config, connectionLimit: 2 });
   });
@@ -76,6 +78,34 @@ describeDb('PostgresAdapter (integration)', () => {
     expect(names).toContain('Hit Orders');
     expect(names).toContain('harness_it.detail');
     expect(names.some((n) => n.startsWith('pg_') || n.startsWith('information_schema'))).toBe(false);
+  });
+
+  it('lists views and materialized views, and labels what each relation is', async () => {
+    const tables = await adapter.listTables();
+    const byName = new Map(tables.map((t) => [t.name, t]));
+
+    expect(byName.get('hit_ann')).toMatchObject({ kind: 'view', schema: 'public' });
+    expect(byName.get('harness_it.hit_names')).toMatchObject({ kind: 'materialized_view' });
+    expect(byName.get('hit_customers')).toMatchObject({ kind: 'table' });
+    expect(byName.get('Hit Orders')).toMatchObject({ kind: 'table' });
+  });
+
+  it('describes a view and queries it', async () => {
+    const view = await adapter.describeTable('hit_ann');
+    expect(view.table.kind).toBe('view');
+    expect(view.columns.map((c) => c.name)).toEqual(['id', 'name']);
+    expect(view.columns.some((c) => c.isPrimaryKey)).toBe(false);
+
+    const mv = await adapter.describeTable('harness_it.hit_names');
+    expect(mv.table.kind).toBe('materialized_view');
+    expect(mv.columns.map((c) => c.name)).toEqual(['name']);
+
+    expect((await adapter.executeQuery('SELECT name FROM hit_ann')).rows).toEqual([{ name: 'Ann' }]);
+    expect((await adapter.executeQuery('SELECT count(*)::int AS n FROM harness_it.hit_names')).rows).toEqual([{ n: 2 }]);
+  });
+
+  it('still refuses writes through a view', async () => {
+    await expect(adapter.executeQuery("INSERT INTO hit_ann (name) VALUES ('x')")).rejects.toThrow(/read-only/i);
   });
 
   it('describes a table with keys, defaults and identity columns', async () => {

@@ -23,6 +23,19 @@ Then point `.env` at it (`DB_NAME=sql_ai_eval`, `DB_USER=harness_ro`) and run `d
 
 The schema and data are synthetic. The structure comes from a forex-management application, but every client name, phone number and email is a fictional placeholder, and no passwords, sessions or cache entries are included. The three seeded users (`demo`, `admin`, `test`) share a placeholder password hash and are not meant for login.
 
+### PostgreSQL edition
+
+The same 40 questions and expected results also run against PostgreSQL, using `schema.postgres.sql` (same tables and rows; `tinyint` becomes `smallint`, enums become `text` with a CHECK constraint). It does not create a database, so make an empty disposable one first:
+
+```bash
+createdb sql_ai_eval
+psql -v ON_ERROR_STOP=1 -d sql_ai_eval -f evals/datasets/forex-management/schema.postgres.sql
+```
+
+The file drops and recreates its 27 tables in whatever database you run it against, so never use a database you care about. Grant a read-only role `SELECT` on them, then set `DB_DRIVER=postgres`, `DB_NAME=sql_ai_eval` and the usual `DB_*` variables and run the benchmark as above. The report header shows the driver; do not compare a MySQL run with a Postgres run as if they were one configuration, and note that the 97.5% in the README was measured on MySQL only.
+
+`tests/eval-dataset-postgres.test.ts` loads the Postgres file into a private schema and checks every reference query against `expected_result` (it runs when `TEST_PG_HOST` is set, as in CI). It also catches reference answers that disagree with the data.
+
 ## 2. Pin the experiment
 
 Use the same `AI_MODEL`, database snapshot, `.env` safety settings, code version, and question dataset for each comparison. Record the exact commit in `GIT_COMMIT` if available. Run a baseline from a checked-out pre-change commit and the improved version from the target commit; do not compare results across changing model/config/database settings.

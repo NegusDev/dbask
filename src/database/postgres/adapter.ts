@@ -85,6 +85,13 @@ function parseQualifiedName(input: string): string[] {
   return parts.map((part) => part.trim()).filter((part) => part.length > 0);
 }
 
+/** Maps pg_class.relkind to the kind shown to the model. */
+function relationKind(relkind: string): 'table' | 'view' | 'materialized_view' {
+  if (relkind === 'v') return 'view';
+  if (relkind === 'm') return 'materialized_view';
+  return 'table';
+}
+
 /** Converts values JSON.stringify would bloat or mangle. */
 function normalizeRow(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -147,14 +154,20 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async listTables(): Promise<TableInfo[]> {
-    const rows = await this.run<{ schema_name: string; table_name: string; visible: boolean }>(
+    const rows = await this.run<{
+      schema_name: string;
+      table_name: string;
+      visible: boolean;
+      relkind: string;
+    }>(
       `
       SELECT n.nspname AS schema_name,
              c.relname AS table_name,
-             pg_table_is_visible(c.oid) AS visible
+             pg_table_is_visible(c.oid) AS visible,
+             c.relkind::text AS relkind
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE c.relkind IN ('r', 'p')
+      WHERE c.relkind IN ('r', 'p', 'v', 'm')
         AND NOT c.relispartition
         AND n.nspname <> 'information_schema'
         AND n.nspname NOT LIKE 'pg\\_%'
@@ -166,6 +179,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     return rows.map((row) => ({
       name: displayName(row.schema_name, row.table_name, row.visible),
       schema: row.schema_name,
+      kind: relationKind(row.relkind),
     }));
   }
 
@@ -209,7 +223,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     }));
 
     return {
-      table: { name: target.display, schema: target.schema },
+      table: { name: target.display, schema: target.schema, kind: target.kind },
       columns,
     };
   }
@@ -327,7 +341,12 @@ export class PostgresAdapter implements DatabaseAdapter {
    */
   private async resolveTable(
     input: string,
-  ): Promise<{ oid: string; schema: string; display: string }> {
+  ): Promise<{
+    oid: string;
+    schema: string;
+    display: string;
+    kind: 'table' | 'view' | 'materialized_view';
+  }> {
     const parts = parseQualifiedName(input);
 
     if (parts.length === 0 || parts.length > 2) {
@@ -342,15 +361,17 @@ export class PostgresAdapter implements DatabaseAdapter {
       schema_name: string;
       table_name: string;
       visible: boolean;
+      relkind: string;
     }>(
       `
       SELECT c.oid::text AS oid,
              n.nspname AS schema_name,
              c.relname AS table_name,
-             pg_table_is_visible(c.oid) AS visible
+             pg_table_is_visible(c.oid) AS visible,
+             c.relkind::text AS relkind
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE c.relkind IN ('r', 'p')
+      WHERE c.relkind IN ('r', 'p', 'v', 'm')
         AND c.relname IN ($1::text, lower($1::text))
         AND (($2::text IS NULL AND pg_table_is_visible(c.oid)) OR n.nspname IN ($2::text, lower($2::text)))
         AND has_table_privilege(c.oid, 'SELECT')
@@ -370,6 +391,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       oid: best.oid,
       schema: best.schema_name,
       display: displayName(best.schema_name, best.table_name, best.visible),
+      kind: relationKind(best.relkind),
     };
   }
 

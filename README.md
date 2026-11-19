@@ -287,8 +287,8 @@ Successful SQL execution does not guarantee a correct answer. SQL attempts are c
 
 | Database | Status |
 |---|---|
-| MySQL / MariaDB | Available |
-| PostgreSQL | Available (tables, partitioned tables, and schemas; views are not listed yet) |
+| MySQL / MariaDB | Available (base tables; views are not listed yet) |
+| PostgreSQL | Available (tables, partitioned tables, views, materialized views, and schemas) |
 | SQLite | Planned |
 | Others | Implement `DatabaseAdapter` |
 
