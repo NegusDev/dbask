@@ -1,4 +1,9 @@
 // src/core/agent/observability.ts
+/**
+ * One tool call as seen by an {@link AgentObserver}.
+ *
+ * @experimental New fields and event types may be added in any release.
+ */
 export type AgentToolEvent =
   | {
       type: 'tool-start';
@@ -16,6 +21,11 @@ export type AgentToolEvent =
       databaseExecutionAttempted?: boolean;
     };
 
+/**
+ * Receives tool events while the agent runs.
+ *
+ * @experimental May change in any release.
+ */
 export interface AgentObserver {
   onToolEvent(event: AgentToolEvent): void;
 }

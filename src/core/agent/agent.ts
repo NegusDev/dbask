@@ -60,15 +60,23 @@ export interface AgentOptions {
   responseMode?: ResponseMode;
 
   temperature?: number;
+  /** @experimental The event shape may change in any release. */
   observer?: AgentObserver;
   /**
    * Require a validated query plan before any SQL runs. Defaults to false:
    * on the benchmark the plan added about 0.7 tool calls and ~30% latency per
    * question without improving accuracy.
+   *
+   * @experimental The plan feature may change or be removed in any release.
    */
   requirePlan?: boolean;
 }
 
+/**
+ * Plan-gate counters for one question.
+ *
+ * @experimental May change in any release.
+ */
 export interface PlanStats {
   submitted: number;
   accepted: number;
@@ -81,13 +89,18 @@ export interface AgentResult {
   text: string;
   steps: number;
   toolCalls: number;
+  /** @experimental Provider-specific payload; its shape is not part of the API. */
   raw?: unknown;
   /**
    * True when the model produced no final answer (for example it ran out of
    * steps). `text` then holds an explanation instead of an answer.
    */
   incomplete?: boolean;
-  /** Plan counters for this question; absent when plans are switched off. */
+  /**
+   * Plan counters for this question; absent when plans are switched off.
+   *
+   * @experimental May change in any release.
+   */
   plan?: PlanStats;
 }
 
