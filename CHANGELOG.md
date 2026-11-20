@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - **The business context file is now `dbask.md`** (was `sql-ai.md`), and the template is `dbask.example.md`. `sql-ai.md` is no longer read.
 
 ### Development
+- Dependabot (`.github/dependabot.yml`): weekly grouped updates for the AI SDK packages, other runtime and dev dependencies, and GitHub Actions, with a release cooldown. Nothing auto-merges; CONTRIBUTING describes the review rules, including a smoke run for AI SDK updates.
 - CI runs the adapter integration tests against PostgreSQL 16, MySQL 8.4 and MariaDB 11 (`tests/mysql-adapter.test.ts` is new; see CONTRIBUTING for the `TEST_MYSQL_*` variables).
 - CI now also runs typecheck, tests, build and a CLI smoke test (`pnpm smoke`: `--version`, `--help`, unknown command and option, `ask` without a question, `validate` without configuration) on macOS and Windows, and the smoke test on Linux. `.gitattributes` keeps LF line endings on every platform.
 - PostgreSQL edition of the forex evaluation dataset (`schema.postgres.sql`), a test that runs every reference query against it, and the database driver in report headers. See `evals/README.md`.
