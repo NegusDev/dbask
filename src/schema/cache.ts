@@ -13,6 +13,8 @@ interface CacheEntry<T> {
  * Process-local cache for database metadata. It never caches query results.
  * A short TTL keeps repeated agent schema discovery from repeatedly hitting
  * information_schema while allowing schema changes to become visible.
+ *
+ * @experimental May change in any release; most applications do not need it.
  */
 export class SchemaCache {
   private readonly ttlMs: number;

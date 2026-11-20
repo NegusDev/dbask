@@ -248,7 +248,7 @@ try {
 }
 ```
 
-The entry point also exports types and interfaces for the agent, providers, database adapters, tool context, observers, and `SchemaCache`. See `src/index.ts` in the installed version for the exact API surface.
+The entry point also exports types and interfaces for the agent, providers, database adapters, tool context, observers, and `SchemaCache`. Each export is marked stable or experimental; see [SDK stability](DOCUMENTATION.md#sdk-stability) for the list and what each tier promises (stable: breaking changes only in a minor release, with a changelog entry; experimental: may change in any release).
 
 The SDK accepts any `DatabaseAdapter` implementation. Custom adapters must preserve the harness safety expectations: read-only intent, row/byte/timeout limits, and bounded SQL attempts per question.
 

@@ -38,7 +38,12 @@ export const queryPlanSchema = z.object({
   sorting: z.array(z.string().trim().min(1)).max(20).optional(),
 });
 
-/** Named to avoid clashing with the EXPLAIN `QueryPlan` in core/types. */
+/**
+ * The plan a model submits before it may run SQL. Named to avoid clashing with
+ * the EXPLAIN `QueryPlan` in core/types.
+ *
+ * @experimental May change in any release.
+ */
 export type StructuredQueryPlan = z.infer<typeof queryPlanSchema>;
 
 export interface SchemaFacts {

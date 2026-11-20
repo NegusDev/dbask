@@ -9,6 +9,11 @@ import {
 import type { ModelRequest, ModelResponse } from '../core/types/index.js';
 import type { AiProvider } from './provider.js';
 
+/**
+ * Adapts an AI SDK language model to {@link AiProvider}.
+ *
+ * @experimental Tied to the AI SDK major version; may change in any release.
+ */
 export class SdkAiProvider implements AiProvider {
   constructor(
     readonly name: string,

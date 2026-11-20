@@ -3,6 +3,11 @@
  *
  * Keep this file as the supported import surface. Consumers should not need to
  * import implementation files from internal src/ paths.
+ *
+ * Every export is either stable or experimental (marked `@experimental` in its
+ * documentation). tests/public-api.test.ts lists both tiers and fails when an
+ * export is added, removed or moved without updating them; DOCUMENTATION.md
+ * ("SDK stability") explains what each tier promises.
  */
 
 export { Agent } from './core/agent/index.js';

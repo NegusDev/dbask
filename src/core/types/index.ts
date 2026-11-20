@@ -5,6 +5,7 @@
 
 export type SqlDialect = 'mysql' | 'postgres' | 'sqlite';
 
+/** @experimental Part of the provider layer; may change in any release. */
 export interface ModelRequest {
   system?: string;
   prompt: string;
@@ -13,6 +14,7 @@ export interface ModelRequest {
   maxSteps?: number;
 }
 
+/** @experimental Part of the provider layer; may change in any release. */
 export interface ModelResponse {
   text: string;
   raw?: unknown;
@@ -20,6 +22,7 @@ export interface ModelResponse {
   toolCalls?: number;
 }
 
+/** @experimental Part of the provider layer; may change in any release. */
 export interface ModelProvider {
   readonly name: string;
   generate(request: ModelRequest): Promise<ModelResponse>;
@@ -29,8 +32,10 @@ export interface TableInfo {
   name: string;
   schema?: string;
   /**
-   * What the relation is. Set by adapters that list more than base tables
-   * (PostgreSQL lists views and materialized views); absent means a table.
+   * What the relation is. Set by the built-in adapters; absent means a table.
+   * PostgreSQL also reports `materialized_view`.
+   *
+   * @experimental May change in any release.
    */
   kind?: 'table' | 'view' | 'materialized_view';
 }
@@ -72,6 +77,11 @@ export interface QueryResult {
 /** TLS behavior for database connections. Mirrors libpq's sslmode names. */
 export type DatabaseSslMode = 'disable' | 'require' | 'verify-full';
 
+/**
+ * The database's EXPLAIN output for a query (what `DatabaseAdapter.explainQuery`
+ * returns). Not to be confused with `StructuredQueryPlan`, the plan a model
+ * submits before running SQL.
+ */
 export interface QueryPlan {
   sql: string;
   plan: unknown;
@@ -103,6 +113,7 @@ export interface SqlSafetyPolicy {
 export interface ToolContext {
   database: DatabaseAdapter;
   safety: SqlSafetyPolicy;
+  /** @experimental Follows `SchemaCache`. */
   schemaCache?: import('../../schema/cache.js').SchemaCache;
 }
 
@@ -111,6 +122,11 @@ export interface DatabaseContext {
   source?: string;
 }
 
+/**
+ * What a database tool returns to the agent.
+ *
+ * @experimental May change in any release.
+ */
 export interface SqlToolResult {
   success: boolean;
   data?: unknown;
