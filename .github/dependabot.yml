@@ -1,0 +1,66 @@
+# Automated dependency updates. Grouped so a week's updates arrive as a few
+# reviewable pull requests instead of one per package.
+#
+# Rules (see CONTRIBUTING.md, "Dependency updates"):
+#  - Nothing here is merged automatically.
+#  - AI SDK updates need a manual smoke run, because CI cannot detect a change
+#    in model-facing behaviour (the benchmark needs API keys).
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Kampala
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    # Raise the minimum in package.json when updating, so the declared range
+    # always matches what CI and the benchmark actually ran.
+    versioning-strategy: increase
+    # Wait before proposing a brand-new release: a malicious or broken version
+    # is usually pulled within days. Security updates ignore this delay.
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
+    ignore:
+      # @types/node follows the oldest supported runtime, not the newest.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # First match wins, so this group must come first.
+      ai-sdk:
+        patterns:
+          - "ai"
+          - "@ai-sdk/*"
+          - "@openrouter/ai-sdk-provider"
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      runtime:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Kampala
+    labels:
+      - dependencies
+    cooldown:
+      default-days: 5
+    groups:
+      actions:
+        patterns:
+          - "*"

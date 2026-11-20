@@ -23,6 +23,14 @@ pnpm test
 
 Run the CLI from source with `pnpm dev ask "your question"` (use `--mode debug` to see tool calls). You need a `.env` for that; `dbask init` or `.env.example` shows the variables. Unit tests need neither a database nor an API key.
 
+## Dependency updates
+
+Dependabot opens grouped pull requests every Monday: one for the AI SDK (`ai`, `@ai-sdk/*`, `@openrouter/ai-sdk-provider`), one for other runtime dependencies, one for dev dependencies, and one for GitHub Actions. They are never merged automatically.
+
+- Read the release notes for anything beyond a patch bump, and check that CI is green on Linux, macOS and Windows.
+- **AI SDK updates also need a smoke run**, because they can change how models are called and CI cannot see that (the benchmark needs API keys). With your own key configured, run `pnpm eval -- --tag deps --only E02,E04,E06,E24,E31,E37` on the branch and compare with the last report for those cases in `evals/reports/`. Paste the summary in the pull request. This is a smoke check, not a benchmark.
+- A major version bump of any dependency is its own pull request with a changelog entry if user-visible behavior changes.
+
 ## Branches and pull requests
 
 1. Fork the repo and branch from `dev` (not `main`). Use a descriptive name: `feat/…`, `fix/…`, `docs/…`.
