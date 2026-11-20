@@ -26,6 +26,11 @@ export interface MySqlAdapterConfig {
   ssl?: DatabaseSslMode;
 }
 
+/** Maps information_schema TABLE_TYPE to the kind shown to the model. */
+function relationKind(tableType: unknown): 'table' | 'view' {
+  return tableType === 'VIEW' ? 'view' : 'table';
+}
+
 export class MySqlAdapter implements DatabaseAdapter {
   readonly dialect = 'mysql' as const;
   private readonly pool: Pool;
@@ -55,31 +60,38 @@ export class MySqlAdapter implements DatabaseAdapter {
   async listTables(): Promise<TableInfo[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `
-      SELECT TABLE_NAME AS table_name
+      SELECT TABLE_NAME AS table_name, TABLE_TYPE AS table_type
       FROM information_schema.TABLES
       WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_TYPE = 'BASE TABLE'
+        AND TABLE_TYPE IN ('BASE TABLE', 'SYSTEM VERSIONED', 'VIEW')
       ORDER BY TABLE_NAME ASC
       `,
     );
 
-    return rows.map((row) => ({ name: String(row.table_name) }));
+    return rows.map((row) => ({
+      name: String(row.table_name),
+      kind: relationKind(row.table_type),
+    }));
   }
 
   async describeTable(table: string): Promise<TableSchema> {
     const [rows] = await this.pool.execute<RowDataPacket[]>(
       `
       SELECT
-        COLUMN_NAME AS column_name,
-        DATA_TYPE AS data_type,
-        IS_NULLABLE AS is_nullable,
-        COLUMN_DEFAULT AS column_default,
-        COLUMN_KEY AS column_key,
-        EXTRA AS extra
-      FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-      ORDER BY ORDINAL_POSITION ASC
+        c.COLUMN_NAME AS column_name,
+        c.DATA_TYPE AS data_type,
+        c.IS_NULLABLE AS is_nullable,
+        c.COLUMN_DEFAULT AS column_default,
+        c.COLUMN_KEY AS column_key,
+        c.EXTRA AS extra,
+        t.TABLE_TYPE AS table_type
+      FROM information_schema.COLUMNS c
+      JOIN information_schema.TABLES t
+        ON t.TABLE_SCHEMA = c.TABLE_SCHEMA
+       AND t.TABLE_NAME = c.TABLE_NAME
+      WHERE c.TABLE_SCHEMA = DATABASE()
+        AND c.TABLE_NAME = ?
+      ORDER BY c.ORDINAL_POSITION ASC
       `,
       [table],
     );
@@ -98,7 +110,7 @@ export class MySqlAdapter implements DatabaseAdapter {
     }));
 
     return {
-      table: { name: table },
+      table: { name: table, kind: relationKind(rows[0]?.table_type) },
       columns,
     };
   }

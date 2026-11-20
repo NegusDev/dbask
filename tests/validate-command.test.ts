@@ -56,6 +56,7 @@ function deps(overrides: Partial<ValidateDependencies> = {}): ValidateDependenci
     createDatabase: () => fakeDatabase(),
     createProvider: () => fakeProvider(),
     loadContext: async () => ({}),
+    findLegacyContext: async () => undefined,
     ...overrides,
   };
 }
@@ -256,6 +257,44 @@ describe('runValidationChecks', () => {
     );
 
     expect(status(results, 'Business context (dbask.md)')).toBe('pass');
+  });
+
+  it('warns once when an old sql-ai.md is found and dbask.md is not', async () => {
+    const results = await runValidationChecks(
+      options,
+      deps({ findLegacyContext: async () => '/work/sql-ai.md' }),
+    );
+
+    const warning = results.filter((r) => r.name === 'Old context file (sql-ai.md)');
+    expect(warning).toHaveLength(1);
+    expect(warning[0]?.status).toBe('warn');
+    expect(warning[0]?.detail).toContain('/work/sql-ai.md');
+    expect(warning[0]?.detail).toContain('Rename it to dbask.md');
+    expect(status(results, 'Business context (dbask.md)')).toBe('skip');
+  });
+
+  it('stays quiet about sql-ai.md when dbask.md is loaded or no old file exists', async () => {
+    const both = await runValidationChecks(
+      options,
+      deps({
+        loadContext: async () => ({ content: '# Rules', source: '/work/dbask.md' }),
+        findLegacyContext: async () => '/work/sql-ai.md',
+      }),
+    );
+    expect(both.some((r) => r.name.startsWith('Old context file'))).toBe(false);
+
+    const neither = await runValidationChecks(options, deps());
+    expect(neither.some((r) => r.name.startsWith('Old context file'))).toBe(false);
+  });
+
+  it('does not fail validation because of the old file', async () => {
+    const results = await runValidationChecks(
+      options,
+      deps({ findLegacyContext: async () => '/work/sql-ai.md' }),
+    );
+
+    expect(results.some((r) => r.status === 'fail')).toBe(false);
+    expect(formatValidationReport(results)).toContain('Ready to use, with warnings above.');
   });
 
   it('does not leak secrets into the report', async () => {

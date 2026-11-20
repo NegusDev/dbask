@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadDatabaseContext } from '../src/context/db-context.js';
+import { findLegacyContextFile, loadDatabaseContext } from '../src/context/db-context.js';
 
 describe('Database context', () => {
   it('returns empty context when dbask.md does not exist', async () => {
@@ -37,6 +37,22 @@ describe('Database context', () => {
     try {
       await writeFile(join(cwd, 'dbask.md'), '   \n', 'utf8');
       await expect(loadDatabaseContext({ cwd })).resolves.toEqual({});
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('finds a leftover sql-ai.md without reading it', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'sql-ai-context-'));
+
+    try {
+      expect(await findLegacyContextFile(cwd)).toBeUndefined();
+
+      await writeFile(join(cwd, 'sql-ai.md'), '# old rules');
+      expect(await findLegacyContextFile(cwd)).toBe(join(cwd, 'sql-ai.md'));
+
+      // The old file is never loaded as context.
+      expect(await loadDatabaseContext({ cwd })).toEqual({});
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
