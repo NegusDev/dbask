@@ -60,7 +60,29 @@ try {
 }
 ```
 
-The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`. Consumers should import from `@negusdev/dbask`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapters in this release are MySQL/MariaDB and PostgreSQL (`createDatabaseAdapter`, `MySqlAdapter`, `PostgresAdapter`).
+The SDK also exports `DatabaseAdapter`, `ToolContext`, agent result/options types, provider interfaces, observer types, and `SchemaCache`; see [SDK stability](#sdk-stability) for which of these are stable. Consumers should import from `@negusdev/dbask`, not internal `src/` paths. `createAiProvider` supports the providers configured by the current project; the available database adapters in this release are MySQL/MariaDB and PostgreSQL (`createDatabaseAdapter`, `MySqlAdapter`, `PostgresAdapter`).
+
+### SDK stability
+
+Everything exported from `@negusdev/dbask` is in one of two tiers. Experimental items are marked `@experimental` in their documentation, so editors show it.
+
+| Tier | Exports |
+|---|---|
+| **Stable** | `Agent`, `createAiProvider`, `createDatabaseAdapter`, `loadConfig`, `MySqlAdapter`, `PostgresAdapter`; types `AgentOptions`, `AgentResult`, `AiProviderName`, `AppConfig`, `ColumnInfo`, `DatabaseAdapter`, `DatabaseConnectionConfig`, `DatabaseContext`, `MySqlAdapterConfig`, `PostgresAdapterConfig`, `QueryExecutionOptions`, `QueryPlan`, `QueryResult`, `RelationshipInfo`, `ResponseMode`, `SqlDialect`, `SqlSafetyPolicy`, `TableInfo`, `TableSchema`, `ToolContext` |
+| **Experimental** | `SchemaCache`, `SdkAiProvider`, `AgentObserver`, `AgentToolEvent`, `AiProvider`, `ModelProvider`, `ModelRequest`, `ModelResponse`, `PlanStats`, `SqlToolResult`, `StructuredQueryPlan` |
+| **Experimental members of stable types** | `AgentOptions.requirePlan`, `AgentOptions.observer`, `AgentResult.plan`, `AgentResult.raw`, `TableInfo.kind`, `ToolContext.schemaCache` |
+
+What the tiers promise while the version is 0.x:
+
+- **Stable:** removing or renaming an export, removing a field, or changing what something means happens only in a minor release (0.2 to 0.3), never in a patch, and is listed in the changelog. Adding things is not a breaking change: new optional fields, new union members (such as a new provider name) and new exports can appear in any release. Write code that tolerates unknown values in unions.
+- **Experimental:** may change or disappear in any release, including a patch. Changes are still listed in the changelog.
+
+Notes:
+
+- `QueryPlan` is the database's EXPLAIN output, returned by `DatabaseAdapter.explainQuery`. `StructuredQueryPlan` is the plan a model submits when `requirePlan` is on. They are different things.
+- The provider layer (`AiProvider` and the `Model*` types) uses types from the Vercel AI SDK, so it can change when that package has a major release. Create providers with `createAiProvider` and pass the result to `Agent`; do not implement `AiProvider` yourself yet.
+- `loadConfig` reads environment variables (`DB_*`, `AI_*`, `AGENT_*`). If you build your own configuration instead, you can construct adapters and providers directly and skip it.
+- A test (`tests/public-api.test.ts`) lists these tiers and fails when an export is added, removed or moved without choosing a tier, so this table and the code cannot drift apart silently.
 
 ### Package development checks
 
