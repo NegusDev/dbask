@@ -78,7 +78,7 @@ Priority: **P0** before 0.2.0, **P1** during the 0.2.x cycle, **P2** when conven
 
 | # | Issue | Evidence | Fix | Status |
 |---|---|---|---|---|
-| 7 | PostgreSQL views are not listed. | README states it. | List views (read-only) and describe their columns; tests. | **Done** (#27), PostgreSQL only. MySQL still lists base tables only; decide for 0.2.x. |
+| 7 | PostgreSQL views are not listed. | README states it. | List views (read-only) and describe their columns; tests. | **Done**: PostgreSQL (#27), MySQL and MariaDB (views and MariaDB system-versioned tables). |
 | 8 | The benchmark only runs on MySQL; PostgreSQL has no eval coverage. | `evals/` had only a MySQL schema. | Postgres variant of the dataset; CI job with a Postgres service for adapter tests. | **Done** (#27). CI already had a PostgreSQL service for adapter tests (this row overstated the gap); the eval dataset and a test of its reference queries were added. No usable Postgres accuracy figure yet, see below. |
 | 9 | CI runs only on Ubuntu. Windows is unverified for the terminal UI, process-group timeout kill and paths. | `.github/workflows/test.yml` has a Node matrix on `ubuntu-latest` only. | Add a Windows (and macOS) job for typecheck and tests; fix what it finds. | **Done** (#27). macOS and Windows both pass. |
 | 10 | The off-topic guard is prompt-level. Nothing tests instructions hidden in table or row data, and nothing tests the guard with other models. | Four scope cases (E37-E40) exist; no injection cases. | Add injection cases (instruction in a row, in a column comment); run the scope cases on a second model. | **Paused** (evals on hold). |
@@ -121,9 +121,10 @@ Made:
 - The optional `ask` MCP tool is 0.2.x, not 0.2.0 (2026-11-20).
 - Docs start on GitHub Pages; `dbask.dev` is the long-term domain (2026-11-20).
 - No SQLite in 0.2.0; Ollama and local models move to 0.3.
-- `sql-ai.md` is renamed to `dbask.md` with no fallback (2026-11-17).
+- `sql-ai.md` is renamed to `dbask.md` with no fallback (2026-11-17). `dbask validate` warns when it finds an unread `sql-ai.md` (nothing is loaded from it).
+- MySQL and MariaDB list views, and CI runs the adapter tests against MySQL 8.4 and MariaDB 11 (2026-11-20).
 - Eval and benchmark work is paused (2026-11-19).
 
 Open:
-- Whether MySQL should also list views (PostgreSQL does since #27). MySQL has no CI service container yet, so this needs one first.
-- Whether to add a one-time `validate` warning when an unread `sql-ai.md` is found. It is not a fallback (nothing is loaded), but it was not requested.
+- The MySQL adapter's timeout is client-side only: the server keeps running a timed-out query and the pooled connection stays busy until it finishes (the PostgreSQL adapter cancels it). Needs a fix (kill the query on timeout, or set a server-side limit).
+- The MySQL adapter does not open a read-only transaction, unlike PostgreSQL, so write protection rests on the SQL validator and a read-only database user. Consider `START TRANSACTION READ ONLY` per query, and say so on the safety-model docs page.

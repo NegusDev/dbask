@@ -23,6 +23,8 @@ pnpm test
 
 Run the CLI from source with `pnpm dev ask "your question"` (use `--mode debug` to see tool calls). You need a `.env` for that; `dbask init` or `.env.example` shows the variables. Unit tests need neither a database nor an API key.
 
+The adapter integration tests run only when a server is configured, and skip themselves otherwise: set `TEST_PG_HOST`, `TEST_PG_PORT`, `TEST_PG_DATABASE`, `TEST_PG_USER`, `TEST_PG_PASSWORD` for PostgreSQL, and the same names with `TEST_MYSQL_` for MySQL or MariaDB. Use a disposable database; the tests create and drop objects prefixed `hit_` (and a private schema on PostgreSQL). CI runs them against PostgreSQL 16, MySQL 8.4 and MariaDB 11.
+
 ## Branches and pull requests
 
 1. Fork the repo and branch from `dev` (not `main`). Use a descriptive name: `feat/…`, `fix/…`, `docs/…`.

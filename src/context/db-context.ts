@@ -5,6 +5,24 @@ import type { DatabaseContext } from '../core/types/index.js';
 
 export const DEFAULT_DATABASE_CONTEXT_FILE = 'dbask.md';
 
+/** The file name before 0.2.0. It is no longer read; `validate` warns when it is found. */
+export const LEGACY_DATABASE_CONTEXT_FILE = 'sql-ai.md';
+
+/**
+ * Returns the path of a leftover pre-0.2.0 context file in `cwd`, or undefined.
+ * This only checks that the file exists; it never loads or uses its content.
+ */
+export async function findLegacyContextFile(cwd: string = process.cwd()): Promise<string | undefined> {
+  const path = resolve(cwd, LEGACY_DATABASE_CONTEXT_FILE);
+
+  try {
+    await access(path, constants.F_OK);
+    return path;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface DatabaseContextLoaderOptions {
   cwd?: string;
   fileName?: string;

@@ -4,12 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- **Views.** `list_tables` now includes views and `describe_table` describes them, on PostgreSQL (also materialized views) and on MySQL and MariaDB. Each entry carries `kind` (`table`, `view` or, on PostgreSQL, `materialized_view`); `TableInfo.kind` is optional and experimental. Writes through a view are still refused on PostgreSQL by the read-only transaction; on MySQL and MariaDB write protection is, as before, the SQL validator plus a read-only database user. MariaDB system-versioned tables, which were being skipped, are now listed as tables.
+- `dbask validate` warns when it finds an old `sql-ai.md` and no `dbask.md`, telling you to rename it. Nothing is read from the old file.
+
 ### Changed
 - **The business context file is now `dbask.md`** (was `sql-ai.md`), and the template is `dbask.example.md`. `sql-ai.md` is no longer read.
-### Added
-- **PostgreSQL views.** `list_tables` now includes views and materialized views, and `describe_table` describes them. Each entry carries `kind` (`table`, `view` or `materialized_view`); `TableInfo.kind` is optional and absent for MySQL, which still lists base tables only. Writes through a view are still refused by the read-only transaction.
 
 ### Development
+- CI runs the adapter integration tests against PostgreSQL 16, MySQL 8.4 and MariaDB 11 (`tests/mysql-adapter.test.ts` is new; see CONTRIBUTING for the `TEST_MYSQL_*` variables).
 - CI now also runs typecheck, tests, build and a CLI smoke test (`pnpm smoke`: `--version`, `--help`, unknown command and option, `ask` without a question, `validate` without configuration) on macOS and Windows, and the smoke test on Linux. `.gitattributes` keeps LF line endings on every platform.
 - PostgreSQL edition of the forex evaluation dataset (`schema.postgres.sql`), a test that runs every reference query against it, and the database driver in report headers. See `evals/README.md`.
 - Benchmark: corrected the reference answer for E23 (it required id columns the question never asks for) and switched E08 and E09 to value comparison so harmless alias differences no longer fail them.

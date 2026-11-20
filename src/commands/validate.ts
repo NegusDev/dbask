@@ -3,7 +3,11 @@ import { loadConfig, type AppConfig } from '../config/config.js';
 import { createDatabaseAdapter, isSupportedDriver } from '../database/factory.js';
 import { createAiProvider } from '../ai/factory.js';
 import type { AiProvider } from '../ai/provider.js';
-import { loadDatabaseContext } from '../context/db-context.js';
+import {
+  findLegacyContextFile,
+  LEGACY_DATABASE_CONTEXT_FILE,
+  loadDatabaseContext,
+} from '../context/db-context.js';
 import type { DatabaseAdapter, DatabaseContext } from '../core/types/index.js';
 import { createStyle, plainStyle, type Style } from '../ui/style.js';
 
@@ -20,6 +24,8 @@ export interface ValidateDependencies {
   createDatabase: (config: AppConfig['database']) => DatabaseAdapter;
   createProvider: (config: AppConfig['ai']) => AiProvider;
   loadContext: () => Promise<DatabaseContext>;
+  /** Path of a leftover `sql-ai.md`, if one exists. Used only to warn; never loaded. */
+  findLegacyContext: () => Promise<string | undefined>;
 }
 
 export interface ValidateOptions {
@@ -34,6 +40,7 @@ const defaultDependencies: ValidateDependencies = {
   createDatabase: (config) => createDatabaseAdapter(config),
   createProvider: createAiProvider,
   loadContext: () => loadDatabaseContext(),
+  findLegacyContext: () => findLegacyContextFile(),
 };
 
 function describeError(error: unknown): string {
@@ -186,6 +193,17 @@ export async function runValidationChecks(
       add('Business context (dbask.md)', 'pass', `Loaded ${context.content.length} characters from ${context.source ?? 'dbask.md'}.`);
     } else {
       add('Business context (dbask.md)', 'skip', 'No dbask.md found. This is optional.');
+
+      // Before 0.2.0 this file was called sql-ai.md. It is silently ignored now,
+      // so say so once here instead of leaving people with unexplained answers.
+      const legacy = await deps.findLegacyContext().catch(() => undefined);
+      if (legacy) {
+        add(
+          `Old context file (${LEGACY_DATABASE_CONTEXT_FILE})`,
+          'warn',
+          `Found ${legacy}, which is no longer read. Rename it to dbask.md to use it.`,
+        );
+      }
     }
   } catch (error) {
     add('Business context (dbask.md)', 'fail', describeError(error));
