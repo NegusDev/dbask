@@ -75,7 +75,7 @@ describe('runValidationChecks', () => {
       'pass', // database
       'pass', // foreign keys
       'pass', // provider
-      'skip', // optional sql-ai.md
+      'skip', // optional dbask.md
     ]);
   });
 
@@ -252,10 +252,10 @@ describe('runValidationChecks', () => {
   it('reports loaded business context', async () => {
     const results = await runValidationChecks(
       options,
-      deps({ loadContext: async () => ({ content: '# Rules', source: '/tmp/sql-ai.md' }) }),
+      deps({ loadContext: async () => ({ content: '# Rules', source: '/tmp/dbask.md' }) }),
     );
 
-    expect(status(results, 'Business context (sql-ai.md)')).toBe('pass');
+    expect(status(results, 'Business context (dbask.md)')).toBe('pass');
   });
 
   it('does not leak secrets into the report', async () => {

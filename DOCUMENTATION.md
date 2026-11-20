@@ -122,7 +122,7 @@ pnpm test
 
 The harness works without any database context file. If you want to give the
 agent additional knowledge about the business/domain represented by your
-existing database, create a `sql-ai.md` file in the project directory.
+existing database, create a `dbask.md` file in the project directory.
 
 For example:
 
@@ -145,7 +145,7 @@ The file is optional. Without it, the harness relies on the database schema,
 relationships, query results and other available tools exactly as before.
 With it, the agent has additional user-defined business/domain knowledge.
 
-A template is included as `sql-ai.example.md`.
+A template is included as `dbask.example.md`.
 
 
 ## Query correctness safeguards

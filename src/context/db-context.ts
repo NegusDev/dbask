@@ -3,7 +3,7 @@ import { constants } from 'node:fs';
 import { resolve } from 'node:path';
 import type { DatabaseContext } from '../core/types/index.js';
 
-export const DEFAULT_DATABASE_CONTEXT_FILE = 'sql-ai.md';
+export const DEFAULT_DATABASE_CONTEXT_FILE = 'dbask.md';
 
 export interface DatabaseContextLoaderOptions {
   cwd?: string;

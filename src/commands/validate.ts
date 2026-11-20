@@ -97,7 +97,7 @@ export async function runValidationChecks(
     add('Database connection', 'skip', 'Skipped: configuration is invalid.');
     add('Foreign keys', 'skip', 'Skipped: configuration is invalid.');
     add('AI provider', 'skip', 'Skipped: configuration is invalid.');
-    add('Business context (sql-ai.md)', 'skip', 'Skipped: configuration is invalid.');
+    add('Business context (dbask.md)', 'skip', 'Skipped: configuration is invalid.');
     return results;
   }
 
@@ -136,7 +136,7 @@ export async function runValidationChecks(
           add(
             'Foreign keys',
             'warn',
-            'No declared foreign keys found. The agent relies on them to plan joins; consider describing relationships in sql-ai.md.',
+            'No declared foreign keys found. The agent relies on them to plan joins; consider describing relationships in dbask.md.',
           );
         } else {
           add('Foreign keys', 'pass', `${relationships.length} declared relationship${relationships.length === 1 ? '' : 's'} found.`);
@@ -183,12 +183,12 @@ export async function runValidationChecks(
     const context = await deps.loadContext();
 
     if (context.content) {
-      add('Business context (sql-ai.md)', 'pass', `Loaded ${context.content.length} characters from ${context.source ?? 'sql-ai.md'}.`);
+      add('Business context (dbask.md)', 'pass', `Loaded ${context.content.length} characters from ${context.source ?? 'dbask.md'}.`);
     } else {
-      add('Business context (sql-ai.md)', 'skip', 'No sql-ai.md found. This is optional.');
+      add('Business context (dbask.md)', 'skip', 'No dbask.md found. This is optional.');
     }
   } catch (error) {
-    add('Business context (sql-ai.md)', 'fail', describeError(error));
+    add('Business context (dbask.md)', 'fail', describeError(error));
   }
 
   return results;

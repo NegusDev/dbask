@@ -21,7 +21,7 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
-    "sql-ai.example.md"
+    "dbask.example.md"
   ],
   "sideEffects": false,
   "publishConfig": {

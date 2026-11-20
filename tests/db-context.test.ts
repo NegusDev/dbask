@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDatabaseContext } from '../src/context/db-context.js';
 
 describe('Database context', () => {
-  it('returns empty context when sql-ai.md does not exist', async () => {
+  it('returns empty context when dbask.md does not exist', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'sql-ai-context-'));
 
     try {
@@ -15,27 +15,27 @@ describe('Database context', () => {
     }
   });
 
-  it('loads user-defined context from sql-ai.md', async () => {
+  it('loads user-defined context from dbask.md', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'sql-ai-context-'));
     const content = '# Database Context\n\nThis is a school management database.';
 
     try {
-      await writeFile(join(cwd, 'sql-ai.md'), content, 'utf8');
+      await writeFile(join(cwd, 'dbask.md'), content, 'utf8');
 
       await expect(loadDatabaseContext({ cwd })).resolves.toMatchObject({
         content,
-        source: join(cwd, 'sql-ai.md'),
+        source: join(cwd, 'dbask.md'),
       });
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
   });
 
-  it('treats an empty sql-ai.md as no context', async () => {
+  it('treats an empty dbask.md as no context', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'sql-ai-context-'));
 
     try {
-      await writeFile(join(cwd, 'sql-ai.md'), '   \n', 'utf8');
+      await writeFile(join(cwd, 'dbask.md'), '   \n', 'utf8');
       await expect(loadDatabaseContext({ cwd })).resolves.toEqual({});
     } finally {
       await rm(cwd, { recursive: true, force: true });
