@@ -247,6 +247,9 @@ export class MySqlAdapter implements DatabaseAdapter {
 
     try {
       const [rows] = await Promise.race([query, abandoned]);
+      // MySQL 8 answers an interrupted SLEEP() with a normal result rather than
+      // an error, so a result that arrives after the timeout fired is not valid.
+      if (timedOut) throw timeoutError();
       return rows;
     } catch (error) {
       if (timedOut) throw error instanceof Error && error.message.startsWith('Query timed out') ? error : timeoutError(error);
