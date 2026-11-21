@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Development
 - `tests/public-api.test.ts` lists the SDK's exports and tiers and fails when an export is added, removed or moved without choosing a tier, or when an `@experimental` tag is missing or misplaced.
+- `evals/reports/README.md` indexes the committed benchmark reports (which ones back a claim, which are history or not comparable) and says when a report should be committed.
 - Dependabot (`.github/dependabot.yml`): weekly grouped updates for the AI SDK packages, other runtime and dev dependencies, and GitHub Actions, with a release cooldown. Nothing auto-merges; CONTRIBUTING describes the review rules, including a smoke run for AI SDK updates.
 - CI runs the adapter integration tests against PostgreSQL 16, MySQL 8.4 and MariaDB 11 (`tests/mysql-adapter.test.ts` is new; see CONTRIBUTING for the `TEST_MYSQL_*` variables).
 - CI now also runs typecheck, tests, build and a CLI smoke test (`pnpm smoke`: `--version`, `--help`, unknown command and option, `ask` without a question, `validate` without configuration) on macOS and Windows, and the smoke test on Linux. `.gitattributes` keeps LF line endings on every platform.

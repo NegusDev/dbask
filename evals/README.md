@@ -36,6 +36,8 @@ The file drops and recreates its 27 tables in whatever database you run it again
 
 `tests/eval-dataset-postgres.test.ts` loads the Postgres file into a private schema and checks every reference query against `expected_result` (it runs when `TEST_PG_HOST` is set, as in CI). It also catches reference answers that disagree with the data.
 
+Committed reports, which ones are safe to cite, and when to commit a new one are in [`reports/README.md`](reports/README.md).
+
 ## 2. Pin the experiment
 
 Use the same `AI_MODEL`, database snapshot, `.env` safety settings, code version, and question dataset for each comparison. Record the exact commit in `GIT_COMMIT` if available. Run a baseline from a checked-out pre-change commit and the improved version from the target commit; do not compare results across changing model/config/database settings.
