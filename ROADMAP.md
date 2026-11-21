@@ -124,7 +124,7 @@ Made:
 - `sql-ai.md` is renamed to `dbask.md` with no fallback (2026-11-17). `dbask validate` warns when it finds an unread `sql-ai.md` (nothing is loaded from it).
 - MySQL and MariaDB list views, and CI runs the adapter tests against MySQL 8.4 and MariaDB 11 (2026-11-20).
 - Eval and benchmark work is paused (2026-11-19).
+- MySQL and MariaDB timeouts cancel the query on the server (2026-11-21).
 
 Open:
-- The MySQL adapter's timeout is client-side only: the server keeps running a timed-out query and the pooled connection stays busy until it finishes (the PostgreSQL adapter cancels it). Needs a fix (kill the query on timeout, or set a server-side limit).
 - The MySQL adapter does not open a read-only transaction, unlike PostgreSQL, so write protection rests on the SQL validator and a read-only database user. Consider `START TRANSACTION READ ONLY` per query, and say so on the safety-model docs page.
