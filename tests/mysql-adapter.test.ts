@@ -1,5 +1,5 @@
 import mysql, { type Connection } from 'mysql2/promise';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MySqlAdapter } from '../src/database/mysql/adapter.js';
 
 /**
@@ -175,18 +175,70 @@ describeDb('MySqlAdapter (integration)', () => {
 
   it('gives up on a slow query and stays usable', async () => {
     const started = Date.now();
-    await expect(adapter.executeQuery('SELECT SLEEP(2)', { timeoutMs: 300 })).rejects.toThrow();
-    expect(Date.now() - started).toBeLessThan(1_500);
+    await expect(adapter.executeQuery('SELECT SLEEP(30)', { timeoutMs: 300 })).rejects.toThrow(
+      /timed out after 300 ms/,
+    );
+    expect(Date.now() - started).toBeLessThan(2_000);
 
-    // The pool has a second connection, so the next question still works.
     expect((await adapter.executeQuery('SELECT 1 AS ok')).rows).toEqual([{ ok: 1 }]);
   });
 
-  // Known gap, not fixed here: the timeout is client-side only. The server keeps
-  // running the query and the pooled connection stays busy until it finishes
-  // (the PostgreSQL adapter cancels it). Turn this into a real test when the
-  // adapter kills timed-out queries.
-  it.todo('cancels the server-side query after a client timeout');
+  it('cancels the query on the server, not just on the client', async () => {
+    await expect(adapter.executeQuery('SELECT SLEEP(31)', { timeoutMs: 200 })).rejects.toThrow(/timed out/);
+
+    // The statement must be gone from the server's process list almost at once.
+    let running = 1;
+    for (let i = 0; i < 20 && running > 0; i += 1) {
+      const [rows] = await admin.query(
+        "SELECT COUNT(*) AS n FROM information_schema.PROCESSLIST WHERE INFO LIKE 'SELECT SLEEP(31)%'",
+      );
+      running = Number((rows as Array<{ n: number }>)[0]?.n);
+      if (running > 0) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(running).toBe(0);
+  });
+
+  it('does not stall the pool after repeated timeouts', async () => {
+    // The pool has 2 connections; before queries were cancelled on the server,
+    // two timeouts in a row left both busy until the sleeps finished.
+    const started = Date.now();
+    for (let i = 0; i < 5; i += 1) {
+      await expect(adapter.executeQuery('SELECT SLEEP(30)', { timeoutMs: 150 })).rejects.toThrow(/timed out/);
+    }
+    expect((await adapter.executeQuery('SELECT 2 AS ok')).rows).toEqual([{ ok: 2 }]);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it('keeps working when the cancelling connection cannot be opened', async () => {
+    const killQuery = vi
+      .spyOn(adapter as unknown as { killQuery: () => Promise<void> }, 'killQuery')
+      .mockRejectedValue(new Error('cannot connect'));
+
+    try {
+      for (let i = 0; i < 3; i += 1) {
+        await expect(adapter.executeQuery('SELECT SLEEP(2)', { timeoutMs: 100 })).rejects.toThrow(/timed out/);
+      }
+      // The stuck connections were destroyed, so the pool made new ones.
+      expect((await adapter.executeQuery('SELECT 3 AS ok')).rows).toEqual([{ ok: 3 }]);
+      expect(killQuery).toHaveBeenCalledTimes(3);
+    } finally {
+      killQuery.mockRestore();
+    }
+  });
+
+  it('does not touch a fast query that finishes before its timeout', async () => {
+    const { rows } = await adapter.executeQuery('SELECT SLEEP(0.2) AS s', { timeoutMs: 2_000 });
+    expect(rows).toHaveLength(1);
+    // Afterwards the connection is still healthy and unkilled.
+    for (let i = 0; i < 4; i += 1) {
+      expect((await adapter.executeQuery('SELECT 4 AS ok')).rows).toEqual([{ ok: 4 }]);
+    }
+  });
+
+  it('applies the same timeout to EXPLAIN', async () => {
+    const plan = await adapter.explainQuery('SELECT * FROM hit_customers WHERE id = 1');
+    expect(JSON.stringify(plan.plan)).toContain('hit_customers');
+  });
 
   it('survives syntax errors', async () => {
     await expect(adapter.executeQuery('SELEC nope')).rejects.toThrow(/syntax/i);

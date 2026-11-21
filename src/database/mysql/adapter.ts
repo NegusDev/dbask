@@ -1,4 +1,9 @@
-import mysql, { type Pool, type PoolOptions, type RowDataPacket } from 'mysql2/promise';
+import mysql, {
+  type ConnectionOptions,
+  type Pool,
+  type PoolOptions,
+  type RowDataPacket,
+} from 'mysql2/promise';
 import type {
   ColumnInfo,
   DatabaseAdapter,
@@ -31,30 +36,40 @@ function relationKind(tableType: unknown): 'table' | 'view' {
   return tableType === 'VIEW' ? 'view' : 'table';
 }
 
+/** How long a cancelled query may take to report back before its connection is dropped. */
+const KILL_GRACE_MS = 3_000;
+
 export class MySqlAdapter implements DatabaseAdapter {
   readonly dialect = 'mysql' as const;
   private readonly pool: Pool;
+  /** Used to open the short-lived connection that cancels a timed-out query. */
+  private readonly connectionOptions: ConnectionOptions;
 
   constructor(config: MySqlAdapterConfig) {
-    const options: PoolOptions = {
+    const connectionOptions: ConnectionOptions = {
       host: config.host,
       port: config.port,
       database: config.database,
       user: config.user,
       password: config.password,
-      connectionLimit: config.connectionLimit ?? 5,
-      waitForConnections: true,
-      enableKeepAlive: true,
       dateStrings: true,
     };
 
     if (config.ssl === 'require') {
-      options.ssl = { rejectUnauthorized: false };
+      connectionOptions.ssl = { rejectUnauthorized: false };
     } else if (config.ssl === 'verify-full') {
-      options.ssl = { rejectUnauthorized: true };
+      connectionOptions.ssl = { rejectUnauthorized: true };
     }
 
-    this.pool = mysql.createPool(options);
+    const poolOptions: PoolOptions = {
+      ...connectionOptions,
+      connectionLimit: config.connectionLimit ?? 5,
+      waitForConnections: true,
+      enableKeepAlive: true,
+    };
+
+    this.connectionOptions = connectionOptions;
+    this.pool = mysql.createPool(poolOptions);
   }
 
   async listTables(): Promise<TableInfo[]> {
@@ -158,11 +173,7 @@ export class MySqlAdapter implements DatabaseAdapter {
     const maxResultBytes = options.maxResultBytes ?? 1_048_576;
     const startedAt = performance.now();
 
-    // mysql2 supports a client-side timeout for text queries.
-    const [rawRows] = await this.pool.query({
-      sql,
-      timeout: timeoutMs,
-    });
+    const rawRows = await this.queryWithTimeout(sql, timeoutMs);
 
     const fetched = Array.isArray(rawRows)
       ? (rawRows as RowDataPacket[]).map((row) => ({ ...row }))
@@ -179,15 +190,86 @@ export class MySqlAdapter implements DatabaseAdapter {
   }
 
   async explainQuery(sql: string): Promise<QueryPlan> {
-    const [rows] = await this.pool.query<RowDataPacket[]>({
-      sql: `EXPLAIN ${sql}`,
-      timeout: 10_000,
-    });
+    const rows = await this.queryWithTimeout(`EXPLAIN ${sql}`, 10_000);
 
     return {
       sql,
       plan: rows,
     };
+  }
+
+  /**
+   * Runs one statement and cancels it on the server when `timeoutMs` passes.
+   *
+   * The mysql2 `timeout` option only stops waiting on the client: the server
+   * keeps running the query and the pooled connection stays busy until it
+   * finishes, so a few slow queries could stall the whole adapter. Here the
+   * statement runs on a connection we hold, and when the timer fires a second
+   * connection sends `KILL QUERY` for it (a user may always kill their own
+   * statements). If that fails, or the cancelled query does not report back
+   * within a few seconds, the held connection is destroyed so the pool can
+   * replace it and the caller still gets the timeout error; the server may
+   * then finish the query on its own.
+   */
+  private async queryWithTimeout(sql: string, timeoutMs: number): Promise<unknown> {
+    const connection = await this.pool.getConnection();
+    const threadId = connection.threadId;
+    const timeoutError = (cause?: unknown): Error =>
+      new Error(`Query timed out after ${timeoutMs} ms and was cancelled.`, { cause });
+
+    let timedOut = false;
+    let destroyed = false;
+    let kill: Promise<void> | undefined;
+    let giveUp: ((error: Error) => void) | undefined;
+    let backstop: NodeJS.Timeout | undefined;
+
+    const abandon = (): void => {
+      if (destroyed) return;
+      destroyed = true;
+      connection.destroy();
+      giveUp?.(timeoutError());
+    };
+
+    const abandoned = new Promise<never>((_, reject) => {
+      giveUp = reject;
+    });
+    abandoned.catch(() => undefined);
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      kill = this.killQuery(threadId).catch(abandon);
+      backstop = setTimeout(abandon, KILL_GRACE_MS);
+    }, timeoutMs);
+
+    const query = connection.query(sql);
+    // If we stop waiting for it, its eventual failure must not go unhandled.
+    query.catch(() => undefined);
+
+    try {
+      const [rows] = await Promise.race([query, abandoned]);
+      return rows;
+    } catch (error) {
+      if (timedOut) throw error instanceof Error && error.message.startsWith('Query timed out') ? error : timeoutError(error);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      clearTimeout(backstop);
+      // Let a kill that is still in flight finish before the connection goes
+      // back to the pool, or it could cancel the next query that reuses it.
+      await kill;
+      if (!destroyed) connection.release();
+    }
+  }
+
+  /** Cancels the statement running on `threadId` from a separate connection. */
+  private async killQuery(threadId: number): Promise<void> {
+    const killer = await mysql.createConnection({ ...this.connectionOptions, connectTimeout: 3_000 });
+
+    try {
+      await killer.query(`KILL QUERY ${Number(threadId)}`);
+    } finally {
+      await killer.end().catch(() => killer.destroy());
+    }
   }
 
   async close(): Promise<void> {
