@@ -281,6 +281,8 @@ The SQL validator tokenizes each query, so keywords inside string literals, quot
 
 On PostgreSQL the adapter adds server-side protection that does not depend on the validator: every statement runs inside a `READ ONLY` transaction that is always rolled back, with a per-query `statement_timeout`, over the extended protocol (so the server itself refuses multiple statements), and rows are streamed through a cursor so oversized results are never fully loaded. Results that hit the row or size limit are flagged `truncated`, and the agent is told not to present them as complete.
 
+On MySQL and MariaDB every statement also runs in a `READ ONLY` session and transaction that is always rolled back, so the server refuses `INSERT`, `UPDATE`, `DELETE` and DDL (`TRUNCATE`, `DROP`, `ALTER`, `RENAME`) with error 1792 even if the validator missed one. Unlike PostgreSQL, results are fetched fully before the row limit applies, and the timeout cancels the query on the server with `KILL QUERY`. A read-only database account is still recommended.
+
 Successful SQL execution does not guarantee a correct answer. SQL attempts are capped per question, but correctness cannot be guaranteed for arbitrary questions or business-specific joins.
 
 ## Database support

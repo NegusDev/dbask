@@ -209,8 +209,8 @@ function isBlockedFunction(name: string, rules: DialectRules): boolean {
  * (backslash escapes on, ANSI_QUOTES off); PostgreSQL rules assume
  * standard_conforming_strings = on, which the PostgreSQL adapter enforces.
  * User-defined functions cannot be recognized as side-effecting. The database
- * account must still be read-only; the PostgreSQL adapter additionally runs
- * every statement in a READ ONLY transaction.
+ * account must still be read-only; both adapters additionally run every
+ * statement in a READ ONLY transaction.
  *
  * @param dialect SQL dialect of the target database. Defaults to MySQL.
  */
