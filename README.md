@@ -26,6 +26,7 @@ Bring your own model. Run it yourself.
 - [Optional database context](#optional-database-context)
 - [TypeScript SDK](#typescript-sdk)
 - [Database tools](#database-tools)
+- [MCP server](#mcp-server)
 - [Safety and data handling](#safety-and-data-handling)
 - [Database support](#database-support)
 - [Evaluation](#evaluation)
@@ -265,6 +266,37 @@ The SDK accepts any `DatabaseAdapter` implementation. Custom adapters must prese
 
 The agent requires **successful global foreign-key discovery before executing SQL**. This helps the model plan joins, but it does not prove every join or aggregation matches the business meaning of a question, and undeclared relationships may not be discoverable.
 
+## MCP server
+
+`dbask mcp` serves the database tools to any MCP client (Claude Desktop, Cursor, or your own code through an MCP client library in any language) over stdio. The client's own model writes the SQL; dbask gives it a safe, capped, read-only view of your database. It needs only the `DB_*` settings: **no AI provider or key**.
+
+Claude Desktop (`claude_desktop_config.json`), Cursor (`.cursor/mcp.json`) and most other clients use the same shape:
+
+```json
+{
+  "mcpServers": {
+    "dbask": {
+      "command": "npx",
+      "args": ["-y", "@negusdev/dbask", "mcp"],
+      "env": {
+        "DB_DRIVER": "mysql",
+        "DB_HOST": "127.0.0.1",
+        "DB_NAME": "your_database",
+        "DB_USER": "readonly_user",
+        "DB_PASSWORD": "your_password"
+      }
+    }
+  }
+}
+```
+
+Tools: `list_tables`, `describe_tables`, `get_relationships`, `execute_query`, `explain_query`. All are marked read-only. Every call goes through the same checks as the CLI: the SQL validator (one `SELECT` or `WITH` statement), row, size and time limits, and the adapter's read-only session. The same limits variables apply (`SQL_MAX_ROWS`, `SQL_QUERY_TIMEOUT_MS`, `SQL_MAX_RESULT_BYTES`).
+
+- **Business context is opt-in.** Set `DBASK_MCP_CONTEXT=on` to offer your `dbask.md` to the client as a `get_business_context` tool. It is sent to whichever AI app connects, so it is off by default. The file is read from the directory the client starts the server in.
+- **Row contents are untrusted.** A value in your data can contain text aimed at the model ("ignore your instructions..."). The tool descriptions tell the model to treat rows as data, but that is not a guarantee. Use a read-only database account, and remember that the connecting app's model sees whatever `execute_query` returns.
+- **There is no `ask` tool.** In an MCP client the client's own model already does that job; running dbask's agent on top would put a second model in the loop.
+- **stdout is the protocol channel.** Logs go to stderr.
+
 ## Safety and data handling
 
 dbask applies safeguards and execution limits, but **it is not a complete security boundary by itself**. Recommended practices:
@@ -345,11 +377,12 @@ node dist/cli.js ask "List active users"
 ```text
 src/
   ai/             Provider factory and provider interfaces
-  commands/       CLI commands, including the init wizard
+  commands/       CLI commands, including the init wizard and `dbask mcp`
   config/         Environment and .env loading
   context/        Optional business context loading (dbask.md)
   core/agent/     Agent loop and observability interfaces
   core/tools/     Schema and SQL tools exposed to the agent
+  mcp/            MCP server exposing the database tools
   database/       Database adapter interface, MySQL and PostgreSQL implementations
   safety/         SQL validation, policy checks, execution limits
   schema/         In-memory schema metadata cache

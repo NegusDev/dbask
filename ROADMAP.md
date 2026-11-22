@@ -18,10 +18,10 @@ Let MCP-capable apps (Claude Desktop, Cursor and others) use dbask's database to
 - Tools mirror what the agent already uses: `list_tables`, `describe_tables`, `get_relationships`, `execute_query` (read-only, row/byte/time limits, same SQL validator), `explain_query`.
 - Configuration through the same `DB_*` environment variables; the user passes them in the app's MCP config.
 - Tool results are untrusted text: cap sizes, never include credentials, and describe in the docs that row contents can contain instructions aimed at the model.
-- An optional `ask` tool (runs the full agent with a configured provider) is **out of scope** for 0.2.0 and planned for 0.2.x (decided). It needs a provider key in the MCP config and puts two models in the loop, so cost, latency and prompt-injection exposure get their own design pass after the tools-only server ships.
+- **No `ask` tool in the MCP server** (decided 2026-11-22). In an MCP client the client's own model already writes the SQL; running dbask's agent as well would put two models in the loop. The cross-language integration path for developers who want dbask's agent is a local HTTP API (`dbask serve`), designed separately (see "Beyond 0.2.0").
 
 **Acceptance criteria**
-- Works end to end in Claude Desktop and one other client, against MySQL and PostgreSQL.
+- Works end to end in Claude Desktop and one other client, against MySQL and PostgreSQL. *Verified so far: the official Node and Python MCP clients against MariaDB; Claude Desktop, PostgreSQL and a second desktop client still to check by hand.*
 - Every tool call goes through the same safety checks as the CLI; a test proves a write, a multi-statement query and an oversized result are rejected.
 - Tests use the official MCP client against a fake adapter; no network or database in unit tests.
 - A docs page with copy-paste config for each supported client.
@@ -57,7 +57,13 @@ See [Known issues and fixes](#known-issues-and-fixes). All P0 items are done.
 - **Column allow/deny list** (hide sensitive columns from the model and block them in SQL). Strong trust feature; planned for 0.3.
 - Hosted service, other languages' SDKs.
 
-Planned for 0.2.x, after 0.2.0: the optional `ask` MCP tool.
+## Beyond 0.2.0
+
+The vision: a developer can add a natural-language interface to an existing, non-AI information system in any language, without an SDK per language (and later a chat or voice front end on top). MCP serves AI apps; the universal door for application code is a **local HTTP/JSON API** (`dbask serve`) that runs the full agent. It needs its own design before any code:
+- **Tenant and user scoping.** A read-only database account is not enough once end users chat with the data: model-written SQL must not cross tenants or reach sensitive columns. Options to evaluate: per-request database role, scoped views, required filters checked by the validator; the column allow/deny list (0.3) belongs here.
+- **Conversation memory** for follow-up questions (the agent answers one question at a time today) and streaming responses.
+- **Security of the server itself:** bind to 127.0.0.1 by default, token auth, CORS, rate limits.
+- **Voice** stays a client concern (speech to text, then the API, then text to speech).
 
 ## Known issues and fixes
 
@@ -118,7 +124,7 @@ Paused on 2026-11-19. When it resumes, in this order:
 
 Made:
 - The MCP command is `dbask mcp`, in the same package (2026-11-20).
-- The optional `ask` MCP tool is 0.2.x, not 0.2.0 (2026-11-20).
+- No `ask` tool in the MCP server; the HTTP API is the path for dbask's own agent (2026-11-22). `dbask.md` is offered over MCP only as an opt-in `get_business_context` tool (`DBASK_MCP_CONTEXT=on`).
 - Docs start on GitHub Pages; `dbask.dev` is the long-term domain (2026-11-20).
 - No SQLite in 0.2.0; Ollama and local models move to 0.3.
 - `sql-ai.md` is renamed to `dbask.md` with no fallback (2026-11-17). `dbask validate` warns when it finds an unread `sql-ai.md` (nothing is loaded from it).

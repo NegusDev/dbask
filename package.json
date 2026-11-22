@@ -74,6 +74,7 @@
     "@ai-sdk/google": "^4.0.121",
     "@ai-sdk/groq": "^4.0.84",
     "@ai-sdk/openai-compatible": "^3.0.92",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "ai": "^7.0.173",
     "dotenv": "^18.0.10",

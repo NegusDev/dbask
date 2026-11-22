@@ -5,6 +5,7 @@ export type CliCommand =
   | { kind: 'version' }
   | { kind: 'init'; args: string[] }
   | { kind: 'validate'; args: string[] }
+  | { kind: 'mcp' }
   | { kind: 'ask'; mode: ResponseMode; question: string }
   | { kind: 'error'; message: string; showUsage?: boolean };
 
@@ -84,6 +85,13 @@ export function parseCli(argv: string[]): CliCommand {
   if (first === '--version' || first === '-v') return { kind: 'version' };
   if (first === 'init') return { kind: 'init', args: rest };
   if (first === 'validate') return { kind: 'validate', args: rest };
+  if (first === 'mcp') {
+    if (rest.length === 1 && (rest[0] === '--help' || rest[0] === '-h')) return { kind: 'help' };
+    if (rest.length > 0) {
+      return { kind: 'error', message: `dbask mcp takes no arguments (got: ${rest.join(' ')}). Configure it with DB_* environment variables.`, showUsage: true };
+    }
+    return { kind: 'mcp' };
+  }
   if (first === 'ask') return parseAsk(rest, false);
 
   return parseAsk(argv, true);
