@@ -125,6 +125,5 @@ Made:
 - MySQL and MariaDB list views, and CI runs the adapter tests against MySQL 8.4 and MariaDB 11 (2026-11-20).
 - Eval and benchmark work is paused (2026-11-19).
 - MySQL and MariaDB timeouts cancel the query on the server (2026-11-21).
+- MySQL and MariaDB statements run in a READ ONLY session and transaction (2026-11-22).
 
-Open:
-- The MySQL adapter does not open a read-only transaction, unlike PostgreSQL, so write protection rests on the SQL validator and a read-only database user. Consider `START TRANSACTION READ ONLY` per query, and say so on the safety-model docs page.

@@ -8,10 +8,9 @@ import { MySqlAdapter } from '../src/database/mysql/adapter.js';
  * The user must be able to create tables in that database. Everything the tests
  * create is prefixed `hit_` and dropped afterwards.
  *
- * Unlike the PostgreSQL adapter, this adapter does not open a read-only
- * transaction: write protection comes from the SQL validator and from using a
- * read-only database user, so these tests do not assert that the adapter itself
- * refuses writes.
+ * Like the PostgreSQL adapter, this adapter runs every statement in a READ ONLY
+ * transaction, so the tests below call executeQuery directly (bypassing the SQL
+ * validator) to check that the server itself refuses writes.
  */
 const host = process.env.TEST_MYSQL_HOST;
 const describeDb = host ? describe : describe.skip;
@@ -250,5 +249,47 @@ describeDb('MySqlAdapter (integration)', () => {
     expect(plan.sql).toContain('hit_customers');
     expect(Array.isArray(plan.plan)).toBe(true);
     expect(JSON.stringify(plan.plan)).toContain('hit_customers');
+  });
+
+  it('refuses writes at the server, even without the SQL validator', async () => {
+    const attempts = [
+      "INSERT INTO hit_customers (name) VALUES ('evil')",
+      "UPDATE hit_customers SET name = 'evil'",
+      'DELETE FROM hit_customers',
+      'TRUNCATE TABLE hit_customers',
+      'CREATE TABLE hit_evil (id INT)',
+      'DROP TABLE hit_detail',
+    ];
+
+    for (const sql of attempts) {
+      await expect(adapter.executeQuery(sql), sql).rejects.toThrow();
+    }
+
+    const [rows] = await admin.query('SELECT COUNT(*) AS n, SUM(name = \'Ann\') AS ann FROM hit_customers');
+    expect(Number((rows as Array<{ n: number }>)[0]?.n)).toBe(51);
+    const [tables] = await admin.query("SHOW TABLES LIKE 'hit_evil'");
+    expect(tables).toEqual([]);
+    const [detail] = await admin.query("SHOW TABLES LIKE 'hit_detail'");
+    expect((detail as unknown[]).length).toBe(1);
+  });
+
+  it('refuses writes inside a pooled connection that was just used for a read', async () => {
+    // Pool of 2: run enough statements that every connection is reused.
+    for (let i = 0; i < 6; i += 1) {
+      expect((await adapter.executeQuery('SELECT 1 AS ok')).rows).toEqual([{ ok: 1 }]);
+      await expect(adapter.executeQuery("UPDATE hit_customers SET name = 'evil'")).rejects.toThrow();
+    }
+  });
+
+  it('never leaves a transaction open on a pooled connection', async () => {
+    for (let i = 0; i < 4; i += 1) {
+      const result = await adapter.executeQuery('SELECT @@in_transaction AS t');
+      // Inside the adapter's own transaction it reads 1; it must never carry over
+      // from a previous query, which would show up as an error or a stale snapshot.
+      expect(Number(result.rows[0]?.t)).toBe(1);
+    }
+    await admin.query("UPDATE hit_customers SET name = 'Ann2' WHERE name = 'Ann'");
+    expect((await adapter.executeQuery("SELECT name FROM hit_customers WHERE id = 1")).rows).toEqual([{ name: 'Ann2' }]);
+    await admin.query("UPDATE hit_customers SET name = 'Ann' WHERE name = 'Ann2'");
   });
 });

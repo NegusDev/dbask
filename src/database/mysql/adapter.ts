@@ -210,10 +210,28 @@ export class MySqlAdapter implements DatabaseAdapter {
    * within a few seconds, the held connection is destroyed so the pool can
    * replace it and the caller still gets the timeout error; the server may
    * then finish the query on its own.
+   *
+   * The session is set READ ONLY and the statement runs inside `START
+   * TRANSACTION READ ONLY`, rolled back afterwards, so writes and DDL are
+   * refused by the server (error 1792), as on PostgreSQL. A read-only database
+   * account is still recommended.
    */
   private async queryWithTimeout(sql: string, timeoutMs: number): Promise<unknown> {
     const connection = await this.pool.getConnection();
     const threadId = connection.threadId;
+
+    // Everything runs in a READ ONLY transaction (always rolled back), so the
+    // server itself refuses writes even if the SQL validator misses one. The
+    // session-level setting is needed too: DDL (TRUNCATE, DROP, ALTER, RENAME)
+    // commits implicitly and is not stopped by a transaction-level READ ONLY.
+    try {
+      await connection.query('SET SESSION TRANSACTION READ ONLY');
+      await connection.query('START TRANSACTION READ ONLY');
+    } catch (error) {
+      connection.destroy();
+      throw error;
+    }
+
     const timeoutError = (cause?: unknown): Error =>
       new Error(`Query timed out after ${timeoutMs} ms and was cancelled.`, { cause });
 
@@ -260,7 +278,15 @@ export class MySqlAdapter implements DatabaseAdapter {
       // Let a kill that is still in flight finish before the connection goes
       // back to the pool, or it could cancel the next query that reuses it.
       await kill;
-      if (!destroyed) connection.release();
+      if (!destroyed) {
+        try {
+          await connection.query('ROLLBACK');
+          connection.release();
+        } catch {
+          // A connection we cannot reset must not go back to the pool.
+          connection.destroy();
+        }
+      }
     }
   }
 
