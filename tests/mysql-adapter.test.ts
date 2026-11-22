@@ -282,14 +282,18 @@ describeDb('MySqlAdapter (integration)', () => {
   });
 
   it('never leaves a transaction open on a pooled connection', async () => {
-    for (let i = 0; i < 4; i += 1) {
-      const result = await adapter.executeQuery('SELECT @@in_transaction AS t');
-      // Inside the adapter's own transaction it reads 1; it must never carry over
-      // from a previous query, which would show up as an error or a stale snapshot.
-      expect(Number(result.rows[0]?.t)).toBe(1);
+    // A transaction left open would keep a stale snapshot (REPEATABLE READ), so
+    // a later read on that connection would miss a committed change.
+    const read = (): Promise<unknown> => adapter.executeQuery('SELECT name FROM hit_customers WHERE id = 1');
+    await Promise.all([read(), read()]); // touch both pooled connections
+
+    await admin.query("UPDATE hit_customers SET name = 'Ann2' WHERE id = 1");
+    try {
+      for (let i = 0; i < 4; i += 1) {
+        expect((await adapter.executeQuery('SELECT name FROM hit_customers WHERE id = 1')).rows).toEqual([{ name: 'Ann2' }]);
+      }
+    } finally {
+      await admin.query("UPDATE hit_customers SET name = 'Ann' WHERE id = 1");
     }
-    await admin.query("UPDATE hit_customers SET name = 'Ann2' WHERE name = 'Ann'");
-    expect((await adapter.executeQuery("SELECT name FROM hit_customers WHERE id = 1")).rows).toEqual([{ name: 'Ann2' }]);
-    await admin.query("UPDATE hit_customers SET name = 'Ann' WHERE name = 'Ann2'");
   });
 });
