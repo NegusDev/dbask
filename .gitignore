@@ -5,3 +5,6 @@ dbask.md
 evals/reports/*.json
 /dist/
 *.tgz
+
+docs/.vitepress/dist
+docs/.vitepress/cache

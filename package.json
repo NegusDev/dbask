@@ -41,7 +41,10 @@
     "eval": "tsx evals/runners/run-benchmark.ts",
     "prepack": "pnpm run build",
     "pack:check": "pnpm pack --dry-run",
-    "smoke": "node scripts/smoke-cli.mjs"
+    "smoke": "node scripts/smoke-cli.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "keywords": [
     "text-to-sql",
@@ -89,6 +92,7 @@
     "@types/pg-cursor": "^2.7.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "vitepress": "1.6.4",
     "vitest": "^5.1.0"
   }
 }

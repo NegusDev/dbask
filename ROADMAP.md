@@ -38,7 +38,9 @@ A real docs site instead of one long README.
 - **Hosting:** start on GitHub Pages at `negusdev.github.io/dbask` (free, same repo and CI). Set the site's base path from one setting (`/dbask/` now, `/` on a custom domain) so moving is a one-line change; GitHub redirects the old URLs once a custom domain is configured.
 - **Domains:** `dbask.dev` is available (checked 2026-11-20) and is the long-term address; buy it before the docs launch publicly. `dbask.vercel.app` is also available if per-PR preview deploys are wanted later. Note that Vercel project URLs are `*.vercel.app`, not `vercel.com`.
 
-**Acceptance criteria:** a new user can go from zero to a first answer using only the site; every environment variable in the config schema is documented (checked by a test or script).
+**Status:** built (VitePress in `docs/`, `.github/workflows/docs.yml`, README shortened). Still to do by hand: enable GitHub Pages (Settings > Pages > Source: GitHub Actions), a first deploy from `main`, and buying `dbask.dev` (then set the repository variable `DOCS_BASE` to `/`).
+
+**Acceptance criteria:** a new user can go from zero to a first answer using only the site; every environment variable in the config schema is documented (checked by `tests/docs-env.test.ts`).
 
 ### 3. SDK stability and maintenance (P2 tasks, required for 0.2.0)
 
