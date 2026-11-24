@@ -41,7 +41,10 @@
     "eval": "tsx evals/runners/run-benchmark.ts",
     "prepack": "pnpm run build",
     "pack:check": "pnpm pack --dry-run",
-    "smoke": "node scripts/smoke-cli.mjs"
+    "smoke": "node scripts/smoke-cli.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "keywords": [
     "text-to-sql",
@@ -69,13 +72,14 @@
     "url": "https://github.com/NegusDev/dbask/issues"
   },
   "dependencies": {
-    "@ai-sdk/cerebras": "^3.0.93",
-    "@ai-sdk/deepseek": "^3.0.87",
-    "@ai-sdk/google": "^4.0.121",
-    "@ai-sdk/groq": "^4.0.84",
-    "@ai-sdk/openai-compatible": "^3.0.92",
+    "@ai-sdk/cerebras": "^3.0.94",
+    "@ai-sdk/deepseek": "^3.0.88",
+    "@ai-sdk/google": "^4.0.122",
+    "@ai-sdk/groq": "^4.0.85",
+    "@ai-sdk/openai-compatible": "^3.0.93",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@openrouter/ai-sdk-provider": "^3.1.0",
-    "ai": "^7.0.173",
+    "ai": "^7.0.177",
     "dotenv": "^18.0.10",
     "mysql2": "^3.24.6",
     "pg": "^8.23.1",
@@ -88,6 +92,7 @@
     "@types/pg-cursor": "^2.7.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "vitepress": "1.6.4",
     "vitest": "^5.1.0"
   }
 }

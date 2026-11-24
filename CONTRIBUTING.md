@@ -46,7 +46,7 @@ Commit messages: short imperative subject (`Add DeepSeek provider`), a body when
 
 - **Tests** for new behavior and for the bug you fixed (the test should fail without your change). Tests live in `tests/` and use [Vitest](https://vitest.dev). Prefer fakes for the database and model; see `tests/agent-query-plan.test.ts` for the pattern.
 - **Types.** `pnpm typecheck` must be clean. No `any` to get around an error.
-- **Docs.** Update `README.md` (and `DOCUMENTATION.md` if the SDK changes) when you add or change a setting, command, provider or public export. New environment variables also go in `.env.example`.
+- **Docs.** Update the docs in `docs/guide/` (and the short `README.md` if the install or first-run steps change) when you add or change a setting, command, provider or public export. A test fails if an environment variable the code reads is missing from `docs/guide/configuration.md`; new variables also go in `.env.example`.
 - **Public API care.** Anything exported from `src/index.ts` is public. Don't rename or remove exports without discussion.
 
 ## Common contributions

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config/config.js';
+import { loadConfig, loadDatabaseConfig } from '../src/config/config.js';
 
 const base = { AI_PROVIDER: 'groq', AI_MODEL: 'm', GROQ_API_KEY: 'k' };
 
@@ -33,5 +33,30 @@ describe('agent config', () => {
     expect(loadConfig(base).agent.queryPlan).toBe(false);
     expect(loadConfig({ ...base, AGENT_QUERY_PLAN: 'on' }).agent.queryPlan).toBe(true);
     expect(() => loadConfig({ ...base, AGENT_QUERY_PLAN: 'maybe' })).toThrow();
+  });
+});
+
+describe('loadDatabaseConfig (no AI provider needed)', () => {
+  it('works with no AI settings at all', () => {
+    expect(() => loadConfig({})).toThrow();
+    const settings = loadDatabaseConfig({ DB_DRIVER: 'postgres', DB_NAME: 'app', DB_USER: 'ro' });
+    expect(settings.database).toMatchObject({ driver: 'postgres', port: 5432, name: 'app', user: 'ro' });
+    expect(settings.safety).toEqual({
+      readOnly: true,
+      maxRows: 500,
+      queryTimeoutMs: 10_000,
+      maxResultBytes: 1_048_576,
+    });
+  });
+
+  it('returns the same database, safety and schema values as loadConfig', () => {
+    const env = { ...base, DB_HOST: 'db', DB_PORT: '3307', SQL_MAX_ROWS: '25', SCHEMA_CACHE_TTL_MS: '1000' };
+    const full = loadConfig(env);
+    expect(loadDatabaseConfig(env)).toEqual({ database: full.database, safety: full.safety, schema: full.schema });
+  });
+
+  it('still validates the database settings', () => {
+    expect(() => loadDatabaseConfig({ DB_SSL: 'yes' })).toThrow();
+    expect(() => loadDatabaseConfig({ SQL_MAX_ROWS: '0' })).toThrow();
   });
 });

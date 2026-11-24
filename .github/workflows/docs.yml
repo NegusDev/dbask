@@ -1,0 +1,103 @@
+name: Docs
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - '.github/workflows/docs.yml'
+  # The site is published from main, so it always matches the released package.
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    env:
+      # '/dbask/' on negusdev.github.io/dbask; set the repository variable DOCS_BASE to '/'
+      # (Settings > Secrets and variables > Actions > Variables) when a custom domain is used.
+      DOCS_BASE: ${{ vars.DOCS_BASE || '/dbask/' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # "last updated" dates come from git history
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Every environment variable the code reads must be documented.
+      - name: Check configuration docs
+        run: pnpm exec vitest run tests/docs-env.test.ts
+
+      # Dead internal links fail the build.
+      - name: Build site
+        run: pnpm docs:build
+
+      - name: Upload site
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  external-links:
+    name: Check external links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Site-internal links (/guide/x) resolve against docs/ with a .md extension.
+          # Excluded: badges (slow, flaky), npm (blocks bots), edit/security pages (need a login),
+          # and the docs site itself (it does not exist until the first deploy).
+          args: >-
+            --no-progress --root-dir ${{ github.workspace }}/docs --fallback-extensions md --max-retries 3 --retry-wait-time 5
+            --accept 200,201,204,429
+            --exclude 'img\.shields\.io' --exclude 'npmjs\.com'
+            --exclude 'github\.com/.*/(edit|security)' --exclude 'negusdev\.github\.io/dbask'
+            'docs/**/*.md' 'README.md'
+          fail: true
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

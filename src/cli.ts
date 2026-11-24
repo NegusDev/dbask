@@ -21,9 +21,14 @@ function printUsage(): void {
   dbask "your question" [--mode natural|technical|debug]
   dbask init [--force]
   dbask validate [--skip-provider]
+  dbask mcp
   dbask --version
 
 ${s.dim('dbask ask "your question" is the same as dbask "your question".')}
+
+${s.cyan('mcp')} serves the read-only database tools to an MCP client (Claude Desktop, Cursor, ...)
+over stdio. It needs only the DB_* settings, no AI provider. Set DBASK_MCP_CONTEXT=on to also
+share dbask.md with the client.
 
 ${s.cyan('validate')} checks your configuration, database connection, foreign keys, and sends
 one tiny request to the AI provider (use --skip-provider to avoid it). It never
@@ -51,6 +56,11 @@ async function main(): Promise<void> {
     case 'validate':
       await runValidate(command.args);
       return;
+    case 'mcp': {
+      const { runMcp } = await import('./commands/mcp.js');
+      await runMcp();
+      return;
+    }
     case 'error':
       console.error(`${createStyle(process.stderr).red('Error:')} ${command.message}`);
       if (command.showUsage) console.error('Run dbask --help for usage.');

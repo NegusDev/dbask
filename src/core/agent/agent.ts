@@ -1,6 +1,5 @@
 // agent.ts
 import { dynamicTool, type ToolSet } from "ai";
-import { z } from "zod";
 import type { AiProvider } from "../../ai/provider.js";
 import type {
   DatabaseContext,
@@ -11,6 +10,7 @@ import type {
 } from "../types/index.js";
 import { noopAgentObserver, type AgentObserver } from "./observability.js";
 import { getTools } from "../tools/registry.js";
+import { toolInputSchemas as schemas } from "../tools/schemas.js";
 import {
   checkSqlFollowsPlan,
   queryPlanSchema,
@@ -18,39 +18,6 @@ import {
   type SchemaFacts,
   type StructuredQueryPlan,
 } from "./query-plan.js";
-
-const emptyInput = z.object({}).strict();
-
-const schemas = {
-  list_tables: emptyInput,
-  describe_tables: z.object({
-    tables: z.array(z.string().min(1)).min(1).max(10),
-  }),
-  describe_table: z.object({
-    table: z
-      .string()
-      .min(1)
-      .describe("The exact database table name to inspect."),
-  }),
-  get_relationships: z.object({
-    table: z
-      .string()
-      .min(1)
-      .optional()
-      .describe(
-        "Optional table name. Omit to inspect all foreign-key relationships.",
-      ),
-  }),
-  execute_query: z.object({
-    sql: z.string().min(1).describe("A read-only SELECT or WITH SQL query."),
-  }),
-  explain_query: z.object({
-    sql: z
-      .string()
-      .min(1)
-      .describe("A read-only SELECT or WITH SQL query to explain."),
-  }),
-};
 
 export type ResponseMode = "natural" | "technical" | "debug";
 
