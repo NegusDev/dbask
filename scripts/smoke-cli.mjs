@@ -49,6 +49,7 @@ function check(name, args, expectations) {
   for (const [stream, pattern] of expectations.contains ?? []) {
     if (!pattern.test(result[stream])) problems.push(`${stream} does not match ${pattern}`);
   }
+  if (expectations.emptyStdout && result.stdout !== '') problems.push('stdout is not empty');
   // A crash prints a stack trace; a handled error does not.
   if (/\bat .*\(node:|TypeError|ReferenceError|Cannot find module/.test(result.stdout + result.stderr)) {
     problems.push('output looks like an unhandled crash');
@@ -74,6 +75,14 @@ try {
   check('unknown command is an error', ['frobnicate'], { status: 1, contains: [['stderr', /Unknown command: frobnicate/]] });
   check('unknown option is an error', ['--nope'], { status: 1, contains: [['stderr', /Unknown option: --nope/]] });
   check('ask without a question is an error', ['ask'], { status: 1, contains: [['stderr', /question is required/]] });
+  check('mcp rejects extra arguments', ['mcp', '--nope'], { status: 1, contains: [['stderr', /takes no arguments/]] });
+  // With stdin closed the server starts, finds the client gone and exits 0. stdout
+  // is the protocol channel, so it must stay empty when no message was exchanged.
+  check('mcp starts without AI settings and keeps stdout clean', ['mcp'], {
+    status: 0,
+    emptyStdout: true,
+    contains: [['stderr', /dbask mcp ready/]],
+  });
   check('validate without configuration fails cleanly', ['validate'], {
     status: 1,
     contains: [['stdout', /Configuration/]],

@@ -81,6 +81,55 @@ export interface AppConfig {
   };
 }
 
+/** Database, safety and schema-cache settings: everything except the AI provider. */
+export type DatabaseSettings = Pick<AppConfig, 'database' | 'safety' | 'schema'>;
+
+const databaseEnvSchema = envSchema.pick({
+  DB_DRIVER: true,
+  DB_HOST: true,
+  DB_PORT: true,
+  DB_NAME: true,
+  DB_USER: true,
+  DB_PASSWORD: true,
+  DB_SSL: true,
+  SQL_MAX_ROWS: true,
+  SQL_QUERY_TIMEOUT_MS: true,
+  SQL_MAX_RESULT_BYTES: true,
+  SCHEMA_CACHE_TTL_MS: true,
+});
+
+function buildDatabaseSettings(parsed: z.infer<typeof databaseEnvSchema>): DatabaseSettings {
+  return {
+    database: {
+      driver: parsed.DB_DRIVER,
+      host: parsed.DB_HOST,
+      port: parsed.DB_PORT ?? (parsed.DB_DRIVER === 'postgres' ? 5432 : 3306),
+      name: parsed.DB_NAME,
+      user: parsed.DB_USER,
+      password: parsed.DB_PASSWORD,
+      ssl: parsed.DB_SSL,
+    },
+    schema: {
+      cacheTtlMs: parsed.SCHEMA_CACHE_TTL_MS,
+    },
+    safety: {
+      readOnly: true,
+      maxRows: parsed.SQL_MAX_ROWS,
+      queryTimeoutMs: parsed.SQL_QUERY_TIMEOUT_MS,
+      maxResultBytes: parsed.SQL_MAX_RESULT_BYTES,
+    },
+  };
+}
+
+/**
+ * Loads only the database connection, safety limits and schema cache settings,
+ * without requiring an AI provider or key. Used by `dbask mcp`, where the
+ * connecting application supplies the model.
+ */
+export function loadDatabaseConfig(env: NodeJS.ProcessEnv = process.env): DatabaseSettings {
+  return buildDatabaseSettings(databaseEnvSchema.parse(env));
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.parse(env);
 
@@ -120,27 +169,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       siteUrl: parsed.AI_SITE_URL,
       siteName: parsed.AI_SITE_NAME,
     },
-    database: {
-      driver: parsed.DB_DRIVER,
-      host: parsed.DB_HOST,
-      port: parsed.DB_PORT ?? (parsed.DB_DRIVER === 'postgres' ? 5432 : 3306),
-      name: parsed.DB_NAME,
-      user: parsed.DB_USER,
-      password: parsed.DB_PASSWORD,
-      ssl: parsed.DB_SSL,
-    },
     agent: {
       maxSteps: parsed.AGENT_MAX_STEPS,
       queryPlan: parsed.AGENT_QUERY_PLAN === 'on',
     },
-    schema: {
-      cacheTtlMs: parsed.SCHEMA_CACHE_TTL_MS,
-    },
-    safety: {
-      readOnly: true,
-      maxRows: parsed.SQL_MAX_ROWS,
-      queryTimeoutMs: parsed.SQL_QUERY_TIMEOUT_MS,
-      maxResultBytes: parsed.SQL_MAX_RESULT_BYTES,
-    },
+    ...buildDatabaseSettings(parsed),
   };
 }

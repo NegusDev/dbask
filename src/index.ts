@@ -6,7 +6,7 @@
  *
  * Every export is either stable or experimental (marked `@experimental` in its
  * documentation). tests/public-api.test.ts lists both tiers and fails when an
- * export is added, removed or moved without updating them; DOCUMENTATION.md
+ * export is added, removed or moved without updating them; docs/guide/sdk.md
  * ("SDK stability") explains what each tier promises.
  */
 

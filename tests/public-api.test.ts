@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import * as sdk from '../src/index.js';
 
 /**
- * The public SDK surface and its stability tiers (DOCUMENTATION.md, "SDK
+ * The public SDK surface and its stability tiers (docs/guide/sdk.md, "SDK
  * stability"). Adding, removing or moving an export fails this test on purpose:
  * pick a tier for it, update the lists below and the docs table, and add a
  * changelog entry if a stable export changed.

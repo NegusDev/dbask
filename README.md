@@ -14,25 +14,11 @@ Bring your own model. Run it yourself.
 
 > **Development status:** dbask is under active development (pre-1.0, so the API may change between minor versions). Validate it against your own schema and workload before relying on it, especially for consequential decisions.
 
-## Contents
+## Documentation
 
-- [Why dbask](#why-dbask)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Quickstart](#quickstart)
-- [Data handling](#data-handling)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Optional database context](#optional-database-context)
-- [TypeScript SDK](#typescript-sdk)
-- [Database tools](#database-tools)
-- [Safety and data handling](#safety-and-data-handling)
-- [Database support](#database-support)
-- [Evaluation](#evaluation)
-- [Development](#development)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+Full documentation: **[https://negusdev.github.io/dbask/](https://negusdev.github.io/dbask/)**
+
+[Quickstart](https://negusdev.github.io/dbask/guide/quickstart) · [Configuration](https://negusdev.github.io/dbask/guide/configuration) · [MCP server](https://negusdev.github.io/dbask/guide/mcp) · [TypeScript SDK](https://negusdev.github.io/dbask/guide/sdk) · [Safety model](https://negusdev.github.io/dbask/guide/safety) · [Troubleshooting](https://negusdev.github.io/dbask/guide/troubleshooting)
 
 ## Why dbask
 
@@ -43,374 +29,87 @@ It is a reusable layer between an AI provider and an existing relational databas
 ## Features
 
 - **Natural-language questions** through the CLI or the TypeScript SDK.
+- **MCP server** (`dbask mcp`): read-only database tools for Claude Desktop, Cursor, Zed, or any MCP client, with no AI key needed.
 - **Bring your own model:** OpenRouter, Google Gemini, DeepSeek, Groq, Cerebras, or Ollama.
 - **Schema-aware agent** with tools for listing tables, describing tables, discovering foreign keys, running queries, and `EXPLAIN`.
-- **Safety by default:** configurable row, byte, timeout, and agent-step limits; capped SQL attempts; foreign-key discovery required before any SQL runs.
+- **Safety by default:** SQL validation, row, size and time limits, a read-only session enforced by the database, and foreign-key discovery before any SQL runs.
 - **Optional `dbask.md`** for business rules and vocabulary the model cannot infer from the schema.
-- **Three response modes:** natural, technical, and debug.
-- **`validate` command** that checks your config, database, foreign keys, and AI provider before you ask anything.
-- **In-process schema cache** so repeated lookups in a run don't hit the database twice.
+- **No telemetry** and no hosted dependency.
 - **Benchmark suite** in `evals/` for reproducible evaluation of changes.
 
 ## Requirements
 
 - **Node.js 22 or later**
 - A **MySQL, MariaDB, or PostgreSQL** database, and an account with read access to the tables the agent should see
-- Credentials and a model ID for one supported AI provider (or a reachable Ollama endpoint)
-
-> SQLite, a hosted HTTP API, and SDKs for languages other than TypeScript are **not** part of this release. The SDK defines a `DatabaseAdapter` interface as the extension point; MySQL/MariaDB and PostgreSQL adapters ship today.
+- Credentials and a model ID for one supported AI provider (or a reachable Ollama endpoint); not needed for `dbask mcp`
 
 ## Quickstart
 
-### 1. Configure
-
-Run the setup wizard in the directory where you want the configuration stored:
-
 ```bash
-npx @negusdev/dbask init
-```
-
-The wizard asks for:
-
-- Database type (MySQL/MariaDB or PostgreSQL), host, port, database, username, and password
-- AI provider and exact model ID
-- An API key (hosted providers) or a base URL (Ollama)
-- Agent step limit, SQL row limit, and schema-cache lifetime
-
-It tests the **database connection** and lists tables before saving. It does **not** send an inference request, so a successful `init` does not prove the provider key or model ID is correct. The next step checks that.
-
-If `.env` already exists, the wizard asks before updating harness settings and preserves unrelated entries. Skip the confirmation with `--force`:
-
-```bash
-npx @negusdev/dbask init --force
-```
-
-Keep `.env` private and out of version control. The wizard writes it with restrictive permissions where supported.
-
-### 2. Check your setup
-
-```bash
-npx @negusdev/dbask validate
-```
-
-`validate` checks your configuration, connects to the database, confirms the account can see tables and foreign keys, and sends **one tiny request** to your AI provider to confirm the key and model work. It never reads table data and never runs model-written SQL. Each line reports `[ok]`, `[warn]`, `[fail]` or `[skip]`, and the command exits with a non-zero status if anything fails, so it also works in scripts and CI.
-
-```text
-[ok]   Configuration: provider=openrouter, model=openai/gpt-4o-mini
-[ok]   Database connection: Connected to 127.0.0.1:3306/mydb; 27 tables visible.
-[ok]   Foreign keys: 42 declared relationships found.
-[ok]   AI provider: openrouter answered using model openai/gpt-4o-mini.
-[skip] Business context (dbask.md): No dbask.md found. This is optional.
-```
-
-Use `--skip-provider` to check only the configuration and database, without contacting the AI provider.
-
-### 3. Ask a question
-
-```bash
+npx @negusdev/dbask init        # writes .env (tests the database connection)
+npx @negusdev/dbask validate    # checks config, database and AI provider
 npx @negusdev/dbask "How many students are enrolled?"
 ```
 
-### 4. Install globally (optional)
+Or install it globally: `npm install --global @negusdev/dbask`, then `dbask "List active users"`.
 
-```bash
-npm install --global @negusdev/dbask
-dbask "List active users"
+Use a **dedicated read-only database account**. See the [safety model](https://negusdev.github.io/dbask/guide/safety) for what dbask does and does not protect against.
+
+## Use it from an AI app
+
+Add this to Claude Desktop, Cursor, or another MCP client (Zed and Windows + WSL setups are in the [MCP guide](https://negusdev.github.io/dbask/guide/mcp)):
+
+```json
+{
+  "mcpServers": {
+    "dbask": {
+      "command": "npx",
+      "args": ["-y", "@negusdev/dbask", "mcp"],
+      "env": {
+        "DB_DRIVER": "mysql",
+        "DB_HOST": "127.0.0.1",
+        "DB_NAME": "your_database",
+        "DB_USER": "readonly_user",
+        "DB_PASSWORD": "your_password"
+      }
+    }
+  }
+}
 ```
 
-## Data handling
-
-dbask itself does not phone home. No telemetry, no crash reporting, no license check on startup, no cloud dependency. The harness runs on your machine (or your own server) and talks to your database directly.
-
-What does leave your machine is what your chosen AI provider receives. Depending on the question and tool flow, that can include schema metadata, question text, generated SQL, and query results. Review that provider's retention, training, and residency terms before using sensitive data.
-
-If you need local-only inference, [Ollama-compatible endpoints are supported](#ai-provider), but this path is not currently exercised in the benchmark, so validate it against your own workload first.
-
-To reduce exposure, see [Safety and data handling](#safety-and-data-handling): read-only database accounts, row/byte/timeout limits, and a required foreign-key discovery step before any SQL runs.
-
-## Usage
-
-```bash
-dbask "How much revenue last month?"                      # natural (default)
-dbask --mode technical "How much revenue last month?"     # answer + SQL
-dbask --mode debug "How much revenue last month?"         # answer + tool traces
-# `dbask ask "…"` is the same as `dbask "…"`; use it for a one-word question or inside older scripts.
-```
-
-Shorthand flags `--technical` and `--debug` also work.
-
-| Mode | Output |
-|---|---|
-| `natural` | A concise, business-friendly answer. |
-| `technical` | The answer plus the SQL that was run. |
-| `debug` | The answer plus tool-call diagnostics. Start here when an answer looks wrong. |
-
-**Terminal output.** In an interactive terminal the CLI shows a progress spinner, renders the answer's Markdown (tables, bold, code, lists) and, in debug mode, prints the tool trace with symbols, highlighted SQL, the submitted query plan and any plan warnings. When output is piped or redirected, nothing changes: you get the plain Markdown answer and the plain `[tool]` / `[done]` trace. Set `NO_COLOR=1` to turn colors off, or `FORCE_COLOR=1` to keep them in a pipe.
-
-## Configuration
-
-Configuration is loaded from `.env` in the current working directory plus the process environment. See `.env.example` in the repository for a full template.
-
-### AI provider
-
-| Variable | Purpose | Example |
-|---|---|---|
-| `AI_PROVIDER` | One of `openrouter`, `google`, `groq`, `cerebras`, `ollama`, `deepseek` | `openrouter` |
-| `AI_MODEL` | Exact model ID accepted by the provider | *required* |
-| `OPENROUTER_API_KEY` | OpenRouter credential | n/a |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini credential | n/a |
-| `GROQ_API_KEY` | Groq credential | n/a |
-| `CEREBRAS_API_KEY` | Cerebras credential | n/a |
-| `OLLAMA_BASE_URL` | Ollama endpoint | `http://localhost:11434/v1` |
-| `DEEPSEEK_API_KEY` | DeepSeek credential | n/a |
-| `AI_SITE_URL` | Optional OpenRouter app URL metadata | n/a |
-| `AI_SITE_NAME` | Optional OpenRouter app name metadata | `dbask` |
-
-Model availability, pricing, quotas, and API behavior are controlled by each provider and can change independently of this project.
-
-### Database
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `DB_DRIVER` | `mysql` (also MariaDB) or `postgres` | `mysql` |
-| `DB_HOST` | Hostname or IP | `127.0.0.1` |
-| `DB_PORT` | Port | `3306` for mysql, `5432` for postgres |
-| `DB_SSL` | `disable`, `require` (encrypt, don't verify the certificate), or `verify-full` (encrypt and verify; use `NODE_EXTRA_CA_CERTS` for a private CA) | `disable` |
-| `DB_NAME` | Database name | *required* |
-| `DB_USER` | Username (**use a restricted read-only account**) | *required* |
-| `DB_PASSWORD` | Password (set privately) | *required* |
-
-### Limits
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `SQL_MAX_ROWS` | Max rows returned per query | `500` |
-| `SQL_QUERY_TIMEOUT_MS` | Per-query timeout (ms) | `10000` |
-| `SQL_MAX_RESULT_BYTES` | Max result payload size (bytes) | `1048576` |
-| `AGENT_MAX_STEPS` | Max agent loop steps | `8` |
-| `AGENT_QUERY_PLAN` | `on` requires a schema-checked query plan before SQL runs; `off` skips it | `off` |
-| `SCHEMA_CACHE_TTL_MS` | Schema cache lifetime (ms) | `300000` (5 min) |
-
-Start from the `.env.example` values and tune against your own database. Higher limits increase both resource use and the amount of data exposed to the model.
-
-## Optional database context
-
-Place a `dbask.md` file in the working directory to explain business terms and rules that aren't obvious from table and column names. It supplements schema discovery; it does not replace it.
-
-```markdown
-# Database Context
-
-## Overview
-
-This database belongs to a school management system. It stores students,
-parents, teachers, classes, enrollments, and payments.
-
-## Business Rules
-
-- Only active enrollments represent currently enrolled students.
-- Completed payments are considered successful payments.
-- Cancelled payments should not be included in revenue calculations.
-```
-
-Keep the rules accurate and current. Incorrect or ambiguous context can produce confidently wrong answers even when the generated SQL is valid. A starter template ships as [`dbask.example.md`](./dbask.example.md).
-
-## TypeScript SDK
-
-The package exports its public SDK from `@negusdev/dbask`. Import from the package entry point; internal `src/` paths are not part of the public API.
+## Use it from TypeScript
 
 ```ts
-import {
-  Agent,
-  createAiProvider,
-  createDatabaseAdapter,
-  loadConfig,
-} from "@negusdev/dbask";
+import { Agent, createAiProvider, createDatabaseAdapter, loadConfig } from "@negusdev/dbask";
 
 const config = loadConfig();
-
-// Picks MySqlAdapter or PostgresAdapter from DB_DRIVER.
-// You can also construct MySqlAdapter / PostgresAdapter directly.
 const database = createDatabaseAdapter(config.database);
-
-const provider = createAiProvider(config.ai);
-
 const agent = new Agent(
-  provider,
+  createAiProvider(config.ai),
   { database, safety: config.safety },
   { maxSteps: config.agent.maxSteps, responseMode: "natural" },
 );
 
 try {
-  const result = await agent.ask("List active users");
-  console.log(result.text);
+  console.log((await agent.ask("List active users")).text);
 } finally {
   await database.close();
 }
 ```
 
-The entry point also exports types and interfaces for the agent, providers, database adapters, tool context, observers, and `SchemaCache`. Each export is marked stable or experimental; see [SDK stability](DOCUMENTATION.md#sdk-stability) for the list and what each tier promises (stable: breaking changes only in a minor release, with a changelog entry; experimental: may change in any release).
+See the [SDK guide](https://negusdev.github.io/dbask/guide/sdk) for stability tiers and custom adapters.
 
-The SDK accepts any `DatabaseAdapter` implementation. Custom adapters must preserve the harness safety expectations: read-only intent, row/byte/timeout limits, and bounded SQL attempts per question.
+## Data handling
 
-## Database tools
-
-| Tool | Purpose |
-|---|---|
-| `list_tables` | List available database tables. |
-| `describe_table` | Inspect one table's structure. |
-| `describe_tables` | Inspect multiple tables in one call. |
-| `get_relationships` | Discover foreign-key relationships across the database. |
-| `execute_query` | Execute SQL allowed by the safety layer and configured limits. |
-| `explain_query` | Request a query plan where supported. |
-
-The agent requires **successful global foreign-key discovery before executing SQL**. This helps the model plan joins, but it does not prove every join or aggregation matches the business meaning of a question, and undeclared relationships may not be discoverable.
-
-## Safety and data handling
-
-dbask applies safeguards and execution limits, but **it is not a complete security boundary by itself**. Recommended practices:
-
-1. **Use a dedicated read-only database account** with only the schema-inspection and read permissions required. Don't rely solely on the model or the application validator to prevent writes.
-2. **Restrict database visibility.** Avoid granting access to unrelated databases, sensitive tables, or columns.
-3. **Protect credentials.** Don't commit `.env` or share credentials in logs or issue reports. Rotate any credential that is exposed.
-4. **Review your AI provider's data handling.** Schema metadata, question text, generated SQL, and query results may be sent to the provider. Check its retention, training, residency, and contractual terms before using sensitive data.
-5. **Set conservative limits** for rows, result size, timeout, and agent steps.
-6. **Verify important answers** independently before using them for financial, operational, or compliance decisions.
-7. **Test on a non-production database first**, such as a disposable or sanitized snapshot.
-
-The SQL validator tokenizes each query, so keywords inside string literals, quoted identifiers, and comments are ignored. It accepts a single read-oriented statement and rejects writes, locking reads, `INTO OUTFILE`, executable comments, and functions such as `SLEEP()` and `LOAD_FILE()`. It uses the lexical rules of the configured database (for example PostgreSQL's dollar-quoted strings and nested comments, or MySQL's `#` comments and backslash escapes), and it assumes MySQL's default `sql_mode`. It cannot recognize user-defined functions with side effects, which is another reason to use a read-only database account.
-
-On PostgreSQL the adapter adds server-side protection that does not depend on the validator: every statement runs inside a `READ ONLY` transaction that is always rolled back, with a per-query `statement_timeout`, over the extended protocol (so the server itself refuses multiple statements), and rows are streamed through a cursor so oversized results are never fully loaded. Results that hit the row or size limit are flagged `truncated`, and the agent is told not to present them as complete.
-
-On MySQL and MariaDB every statement also runs in a `READ ONLY` session and transaction that is always rolled back, so the server refuses `INSERT`, `UPDATE`, `DELETE` and DDL (`TRUNCATE`, `DROP`, `ALTER`, `RENAME`) with error 1792 even if the validator missed one. Unlike PostgreSQL, results are fetched fully before the row limit applies, and the timeout cancels the query on the server with `KILL QUERY`. A read-only database account is still recommended.
-
-Successful SQL execution does not guarantee a correct answer. SQL attempts are capped per question, but correctness cannot be guaranteed for arbitrary questions or business-specific joins.
-
-## Database support
-
-| Database | Status |
-|---|---|
-| MySQL / MariaDB | Available (tables, views, and MariaDB system-versioned tables) |
-| PostgreSQL | Available (tables, partitioned tables, views, materialized views, and schemas) |
-| SQLite | Planned |
-| Others | Implement `DatabaseAdapter` |
+dbask itself does not phone home: no telemetry, no crash reporting, no license check, no cloud dependency. What leaves your machine is what your chosen AI provider receives: schema metadata, question text, generated SQL and query results. Review that provider's retention and training terms before using sensitive data. Details in the [safety model](https://negusdev.github.io/dbask/guide/safety#data-handling).
 
 ## Evaluation
 
-The `evals/` directory contains a benchmark dataset, runner, and saved reports. Use it to check whether a change to the model, prompt, tool, or adapter measurably affects correctness.
-
-```bash
-pnpm eval -- --tag local-check
-```
-
-See [`evals/README.md`](./evals/README.md) for dataset setup and scoring. When comparing runs, keep the provider, model, database snapshot, configuration, and dataset consistent. A passing benchmark supports the cases tested; it is not a guarantee of general correctness.
-
-**Latest result (v0.1.8):** on the 40-case internal benchmark (synthetic forex database, `gemini-3.5-flash-lite`, 3 runs) the agent passed 39 of 40 cases in every run (97.5%), including 10 of 10 safety and off-topic refusal checks. The one consistent failure is a known reference-answer error in the benchmark, not an agent error. The cases are mostly simple lookups and joins, so treat this as a regression check, not a measure of accuracy on your own database.
-
-### Query plan (optional)
-
-With `AGENT_QUERY_PLAN=on` the agent must submit a structured plan (tables, columns, joins, filters) that is checked against your real schema before any SQL runs, and the SQL may only read the planned tables. In the same benchmark the plan added about 0.7 tool calls and roughly 30% median latency per question without improving accuracy, so it is off by default. Turn it on if you want the agent's assumptions visible in `--mode debug`, or to compare against your own workload.
-
-## Development
-
-```bash
-git clone https://github.com/NegusDev/dbask.git
-cd dbask
-pnpm install
-cp .env.example .env
-```
-
-Run a question through the development CLI:
-
-```bash
-pnpm dev ask "List active users"
-```
-
-Run the checks before submitting changes:
-
-```bash
-pnpm typecheck
-pnpm test
-pnpm build
-npm pack --dry-run
-```
-
-Run the built CLI directly:
-
-```bash
-node dist/cli.js ask "List active users"
-```
-
-### Project layout
-
-```text
-src/
-  ai/             Provider factory and provider interfaces
-  commands/       CLI commands, including the init wizard
-  config/         Environment and .env loading
-  context/        Optional business context loading (dbask.md)
-  core/agent/     Agent loop and observability interfaces
-  core/tools/     Schema and SQL tools exposed to the agent
-  database/       Database adapter interface, MySQL and PostgreSQL implementations
-  safety/         SQL validation, policy checks, execution limits
-  schema/         In-memory schema metadata cache
-  cli.ts          CLI entry point
-  index.ts        Public TypeScript SDK exports
-evals/            Benchmark dataset, runner, and reports
-tests/            Automated tests
-```
-
-## Troubleshooting
-
-### Database connection fails
-
-- Verify host, port, database name, username, and password.
-- Confirm the database accepts connections from the machine running the harness.
-- Confirm the account can inspect tables and read the required data.
-- Check firewall rules and database allowlists.
-- Hosted PostgreSQL (Neon, Supabase, RDS, ...) usually requires TLS: set `DB_SSL=require`. Poolers such as pgbouncer in transaction mode work, because each query is a self-contained transaction.
-- PostgreSQL tables outside `public` appear as `schema.table` in `list_tables`; the agent is told to use names exactly as listed.
-
-### Provider authentication or model errors
-
-- Confirm `AI_PROVIDER` matches the provider whose key you configured.
-- Verify `AI_MODEL` is the exact model ID the provider expects.
-- Check that the API key is active and has quota and access to the model.
-- For Ollama, verify the endpoint is reachable and the model is installed.
-- Run `dbask validate`. It sends one tiny request to the provider and reports whether the key, model, and network path work. (`init` only tests the database.)
-
-### The answer is incorrect or incomplete
-
-- Run with `--mode technical` or `--mode debug` to inspect the SQL and tool activity.
-- Inspect the relevant table definitions and foreign keys.
-- Review `dbask.md` for outdated or ambiguous rules.
-- Narrow the question with dates, statuses, or business definitions.
-- Verify the generated SQL and results directly against the database.
-- Add a representative case to `evals/` if the failure is repeatable.
-
-### Configuration is not found
-
-- Run the command from the directory containing `.env`, or set the variables in the process environment.
-- Confirm variable names match `.env.example`.
-- Check that `AI_MODEL` and the selected provider's credentials are set.
+On the 40-case internal benchmark (synthetic forex database, MySQL, `gemini-3.5-flash-lite`, 3 runs, v0.1.8) the agent passed 39 of 40 cases in every run (97.5%), including 10 of 10 safety and off-topic refusal checks. The one consistent failure is a known reference-answer error in the benchmark. The cases are mostly simple lookups and joins, so treat this as a regression check, not a measure of accuracy on your own database. There is no PostgreSQL figure yet. See [Evals and benchmarks](https://negusdev.github.io/dbask/guide/evals).
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/NegusDev/dbask](https://github.com/NegusDev/dbask).
-
-Before opening a PR, run the project checks and confirm that changes to the agent, tools, or prompts don't regress the benchmark:
-
-```bash
-pnpm eval -- --tag <your-branch>
-```
-
-For bugs involving incorrect answers, include:
-
-- The question you asked (or a close paraphrase)
-- The `--mode debug` output
-- The relevant table definitions and `dbask.md` content, if any
-- The provider and model used
-
-Do **not** include `.env` contents, credentials, or unfiltered production data in issue reports.
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](./CONTRIBUTING.md). For a bug about a wrong answer, include the question, the `--mode debug` output, the relevant table definitions and `dbask.md`, and the provider and model. Do **not** include `.env` contents, credentials, or unfiltered production data.
 
 ## License
 
@@ -418,8 +117,9 @@ Released under the [ISC License](./LICENSE).
 
 ## Links
 
+- [Documentation](https://negusdev.github.io/dbask/)
 - [Source](https://github.com/NegusDev/dbask)
 - [npm](https://www.npmjs.com/package/@negusdev/dbask)
 - [Issues](https://github.com/NegusDev/dbask/issues)
-- [Evaluation guide](./evals/README.md)
+- [Changelog](./CHANGELOG.md)
 - [Business context template](./dbask.example.md)

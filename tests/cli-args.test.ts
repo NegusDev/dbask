@@ -61,6 +61,12 @@ describe('parseCli', () => {
     expect(parseCli(['--debug'])).toMatchObject({ kind: 'error' });
   });
 
+  it('routes mcp and rejects extra arguments', () => {
+    expect(parseCli(['mcp'])).toEqual({ kind: 'mcp' });
+    expect(parseCli(['mcp', '--help'])).toEqual({ kind: 'help' });
+    expect(parseCli(['mcp', '--port', '1'])).toMatchObject({ kind: 'error', showUsage: true });
+  });
+
   it('routes init, validate, help and version', () => {
     expect(parseCli(['init', '--force'])).toEqual({ kind: 'init', args: ['--force'] });
     expect(parseCli(['validate', '--skip-provider'])).toEqual({ kind: 'validate', args: ['--skip-provider'] });
