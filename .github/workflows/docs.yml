@@ -75,11 +75,11 @@ jobs:
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          # Only absolute http(s) links: internal links are checked by the site build.
+          # Site-internal links (/guide/x) resolve against docs/ with a .md extension.
           # Excluded: badges (slow, flaky), npm (blocks bots), edit/security pages (need a login),
           # and the docs site itself (it does not exist until the first deploy).
           args: >-
-            --no-progress --include '^https?://' --max-retries 3 --retry-wait-time 5
+            --no-progress --root-dir ${{ github.workspace }}/docs --fallback-extensions md --max-retries 3 --retry-wait-time 5
             --accept 200,201,204,429
             --exclude 'img\.shields\.io' --exclude 'npmjs\.com'
             --exclude 'github\.com/.*/(edit|security)' --exclude 'negusdev\.github\.io/dbask'
