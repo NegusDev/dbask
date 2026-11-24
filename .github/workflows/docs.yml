@@ -75,11 +75,14 @@ jobs:
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          # Internal links are checked by the site build; this covers links to other sites.
+          # Only absolute http(s) links: internal links are checked by the site build.
+          # Excluded: badges (slow, flaky), npm (blocks bots), edit/security pages (need a login),
+          # and the docs site itself (it does not exist until the first deploy).
           args: >-
-            --no-progress --scheme https --max-retries 3 --retry-wait-time 5
+            --no-progress --include '^https?://' --max-retries 3 --retry-wait-time 5
             --accept 200,201,204,429
-            --exclude 'npmjs\.com' --exclude 'github\.com/.*/(edit|security)'
+            --exclude 'img\.shields\.io' --exclude 'npmjs\.com'
+            --exclude 'github\.com/.*/(edit|security)' --exclude 'negusdev\.github\.io/dbask'
             'docs/**/*.md' 'README.md'
           fail: true
 
