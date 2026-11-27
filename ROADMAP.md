@@ -21,7 +21,7 @@ Let MCP-capable apps (Claude Desktop, Cursor and others) use dbask's database to
 - **No `ask` tool in the MCP server** (decided 2026-11-22). In an MCP client the client's own model already writes the SQL; running dbask's agent as well would put two models in the loop. The cross-language integration path for developers who want dbask's agent is a local HTTP API (`dbask serve`), designed separately (see "Beyond 0.2.0").
 
 **Acceptance criteria**
-- Works end to end in Claude Desktop and one other client, against MySQL and PostgreSQL. *Verified so far: the official Node and Python MCP clients against MariaDB; Claude Desktop, PostgreSQL and a second desktop client still to check by hand.*
+- Works end to end in Claude Desktop and one other client, against MySQL and PostgreSQL. **Done** (2026-11-27): Claude Desktop and Zed by hand (Windows + WSL); the official Node and Python MCP clients against MariaDB, and the Node client against PostgreSQL 16 (tools, 42 foreign keys, row cap, write/multi-statement/`pg_sleep`/`COPY ... TO PROGRAM` rejected, timeout cancelled and the next query works).
 - Every tool call goes through the same safety checks as the CLI; a test proves a write, a multi-statement query and an oversized result are rejected.
 - Tests use the official MCP client against a fake adapter; no network or database in unit tests.
 - A docs page with copy-paste config for each supported client.
@@ -38,7 +38,7 @@ A real docs site instead of one long README.
 - **Hosting:** start on GitHub Pages at `negusdev.github.io/dbask` (free, same repo and CI). Set the site's base path from one setting (`/dbask/` now, `/` on a custom domain) so moving is a one-line change; GitHub redirects the old URLs once a custom domain is configured.
 - **Domains:** `dbask.dev` is available (checked 2026-11-20) and is the long-term address; buy it before the docs launch publicly. `dbask.vercel.app` is also available if per-PR preview deploys are wanted later. Note that Vercel project URLs are `*.vercel.app`, not `vercel.com`.
 
-**Status:** built (VitePress in `docs/`, `.github/workflows/docs.yml`, README shortened). Still to do by hand: enable GitHub Pages (Settings > Pages > Source: GitHub Actions), a first deploy from `main`, and buying `dbask.dev` (then set the repository variable `DOCS_BASE` to `/`).
+**Status:** done and live at negusdev.github.io/dbask (VitePress in `docs/`, `.github/workflows/docs.yml`, README shortened). Still to do: buy `dbask.dev`, then set the repository variable `DOCS_BASE` to `/`.
 
 **Acceptance criteria:** a new user can go from zero to a first answer using only the site; every environment variable in the config schema is documented (checked by `tests/docs-env.test.ts`).
 

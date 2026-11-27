@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-27
+
+This release adds an MCP server, a documentation site, server-side read-only sessions on MySQL and MariaDB, and real query cancellation on timeout. **Upgrade notes** and **known limitations** are at the end of this section.
+
 ### Added
 - **MCP server: `dbask mcp`.** Serves `list_tables`, `describe_tables`, `get_relationships`, `execute_query` and `explain_query` over stdio to any MCP client (Claude Desktop, Cursor, or a client library in any language). It needs only the `DB_*` settings, no AI provider or key, and every call goes through the same SQL validator, limits and read-only session as the CLI. `DBASK_MCP_CONTEXT=on` also offers `dbask.md` as a `get_business_context` tool (off by default, because it is sent to the connecting app). There is no `ask` tool: the client's own model answers questions. See the README, "MCP server". The MCP SDK is loaded only by this command.
 - **Views.** `list_tables` now includes views and `describe_table` describes them, on PostgreSQL (also materialized views) and on MySQL and MariaDB. Each entry carries `kind` (`table`, `view` or, on PostgreSQL, `materialized_view`); `TableInfo.kind` is optional and experimental. Writes through a view are still refused on PostgreSQL by the read-only transaction; on MySQL and MariaDB write protection is, as before, the SQL validator plus a read-only database user. MariaDB system-versioned tables, which were being skipped, are now listed as tables.
@@ -31,8 +35,22 @@ All notable changes to this project are documented here. The format follows [Kee
 - Benchmark: corrected the reference answer for E23 (it required id columns the question never asks for) and switched E08 and E09 to value comparison so harmless alias differences no longer fail them.
 - Benchmark runner: a case killed at the time limit now shows as `timeout` (its own row in the report summary and its own verdict in `--repeat` summaries) instead of looking like a wrong answer; it is still scored as a failure. Reports also count plan submissions, rejections and SQL blocked for leaving the plan, per case and in total, and the JSON report carries a `plan` object for each case.
 
+- AI SDK packages updated to their latest patch releases (`ai` 7.0.177, `@ai-sdk/google` 4.0.122 and others, via Dependabot).
+- `examples/nextjs` is a starter Next.js app kept in the repository; it is not part of the published package.
+
 ### Upgrade notes
-- If you use a business context file, rename `sql-ai.md` to `dbask.md` before upgrading. Without the rename the agent runs with no business context, and no error is shown.
+- If you use a business context file, rename `sql-ai.md` to `dbask.md` before upgrading. The old file is no longer read, and the agent runs without business context. `dbask validate` warns when it finds an unread `sql-ai.md`.
+- MySQL and MariaDB statements now run in a read-only session. A query that wrote data through some route the SQL validator allowed would now fail with error 1792; ordinary `SELECT` use is unaffected.
+- A MySQL or MariaDB query that exceeds `SQL_QUERY_TIMEOUT_MS` now fails with `Query timed out after N ms and was cancelled.` and is stopped on the server.
+- `TableInfo.kind` and the view entries in `list_tables` are new and experimental. Code that assumed every entry is a table should tolerate `view` and `materialized_view`.
+
+### Known limitations
+- **No PostgreSQL accuracy figure.** The benchmark's PostgreSQL reports are not comparable with each other or with the MySQL figure. The README's 97.5% is MySQL, `gemini-3.5-flash-lite`, v0.1.8.
+- **Prompt-injection and harder-case benchmark work is paused.** Instructions hidden in table or row data are not covered by the benchmark, and the guard against off-topic questions is prompt-level. The benchmark is mostly simple lookups and joins.
+- **No per-user, per-tenant or per-column access control.** The database account is the access boundary. A column allow/deny list is planned for 0.3.
+- **MySQL and MariaDB load full results before the row limit applies**, so a query that returns a very large result costs memory before it is cut.
+- **Local models (Ollama)** are supported but not covered by the benchmark yet.
+- **No `ask` tool in the MCP server** by design, and no HTTP API yet for using dbask's own agent from other languages.
 
 ## [0.1.9] - 2026-11-14
 
@@ -68,7 +86,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 For earlier releases, see the [commit history](https://github.com/NegusDev/dbask/commits/dev) and the npm release list.
 
-[Unreleased]: https://github.com/NegusDev/dbask/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/NegusDev/dbask/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/NegusDev/dbask/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/NegusDev/dbask/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/NegusDev/dbask/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/NegusDev/dbask/releases/tag/v0.1.7
