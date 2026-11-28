@@ -28,3 +28,19 @@ features:
     details: No telemetry and no hosted dependency. Only the AI provider you choose sees schema metadata, questions, SQL and results.
     link: /guide/safety#data-handling
 ---
+
+<div class="architecture">
+
+## How it fits together
+
+![dbask architecture: the CLI, the TypeScript SDK and the MCP server are three interfaces to one engine of tools, safety checks and database adapters. A question travels down the left lane and the answer comes back up the right lane.](/dbask-architecture.gif)
+
+The CLI and the SDK run dbask's agent, which uses your AI provider to plan the query. The MCP server skips the agent: your AI app's own model writes the SQL and dbask only offers the tools. In every case a query passes the same [SQL validator, limits and read-only session](/guide/safety) before it reaches your database.
+
+</div>
+
+<style>
+.architecture { max-width: 1152px; margin: 3rem auto 0; padding: 0 24px; }
+.architecture h2 { border-top: none; margin-top: 0; }
+.architecture img { width: 100%; max-width: 1000px; height: auto; display: block; margin: 1rem auto; border-radius: 12px; border: 1px solid var(--vp-c-divider); }
+</style>

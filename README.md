@@ -26,6 +26,12 @@ Most Text-to-SQL tools are either a hosted service that sees your schema and dat
 
 It is a reusable layer between an AI provider and an existing relational database. It is not a new application with its own schema.
 
+## How it fits together
+
+![dbask architecture: the CLI, the TypeScript SDK and the MCP server are three interfaces to one engine of tools, safety checks and database adapters. A question travels down the left lane and the answer comes back up the right lane.](docs/public/dbask-architecture.gif)
+
+The CLI and the SDK run dbask's agent, which uses your AI provider to plan the query. The MCP server skips the agent: your AI app's own model writes the SQL and dbask only offers the tools. In every case a query passes the same SQL validator, limits and read-only session before it reaches your database.
+
 ## Features
 
 - **Natural-language questions** through the CLI or the TypeScript SDK.
