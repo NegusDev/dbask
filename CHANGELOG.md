@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- An animated architecture diagram (`docs/public/dbask-architecture.gif`) in the README and on the docs home page: the CLI, SDK and MCP server as three interfaces to one engine, with the request and the response shown as separate flows. Its source and render script are in `scripts/architecture-diagram/`.
+
 ## [0.2.0] - 2026-11-27
 
 This release adds an MCP server, a documentation site, server-side read-only sessions on MySQL and MariaDB, and real query cancellation on timeout. **Upgrade notes** and **known limitations** are at the end of this section.

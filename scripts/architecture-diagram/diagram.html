@@ -1,0 +1,126 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#fff}
+svg{display:block;font-family:Inter,"Segoe UI",Helvetica,Arial,sans-serif}
+</style></head><body>
+<svg id="s" width="1000" height="680" viewBox="0 0 1000 680" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+const NS='http://www.w3.org/2000/svg', svg=document.getElementById('s');
+const C={ink:'#1f2328',mut:'#656d76',line:'#d0d7de',bg:'#f6f8fa',blue:'#1f6feb',blueBg:'#dbeafe',vio:'#8250df',vioBg:'#efe6ff',grn:'#1a7f37',grnBg:'#dafbe1',amb:'#bf8700'};
+const el=(n,a={},p=svg)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e};
+const nodes={};
+function box(id,x,y,w,h,title,sub,o={}){
+  const g=el('g');const r=el('rect',{x,y,width:w,height:h,rx:10,fill:o.fill||C.bg,stroke:o.stroke||C.line,'stroke-width':1.5,'stroke-dasharray':o.dash||''},g);
+  const t1=el('text',{x:x+w/2,y:y+(sub?h/2-4:h/2+5),'text-anchor':'middle','font-size':o.fs||15,'font-weight':600,fill:C.ink},g);t1.textContent=title;
+  const t2=el('text',{x:x+w/2,y:y+h/2+15,'text-anchor':'middle','font-size':12,fill:C.mut},g);t2.textContent=sub||'';
+  nodes[id]={r,t1,t2,x,y,w,h,base:{fill:o.fill||C.bg,stroke:o.stroke||C.line},act:o.act||{fill:C.blueBg,stroke:C.blue}};
+}
+// title
+el('text',{x:500,y:30,'text-anchor':'middle','font-size':20,'font-weight':700,fill:C.ink}).textContent='dbask: three interfaces, one engine';
+// shared engine group
+const grp=el('rect',{x:24,y:276,width:952,height:244,rx:14,fill:'none',stroke:C.line,'stroke-width':1.5,'stroke-dasharray':'6 5'});
+el('text',{x:44,y:296,'font-size':12,'font-weight':700,fill:C.mut,'letter-spacing':1}).textContent='SHARED ENGINE: the same tools and safety checks, whichever interface calls them';
+// row0 callers
+box('c0',40,46,250,52,'Terminal','',{fill:'#fff',fs:13});
+box('c1',320,46,250,52,'Your TypeScript app','',{fill:'#fff',fs:13});
+box('c2',630,46,330,52,'AI app (Claude Desktop, Cursor, Zed)','',{fill:'#fff',fs:13});
+// row1 interfaces
+box('i0',40,112,250,52,'CLI','dbask "question"');
+box('i1',320,112,250,52,'TypeScript SDK','new Agent(...).ask()');
+box('i2',630,112,330,52,'MCP server','dbask mcp');
+// row2 agent / no agent
+box('ag',40,190,530,56,'Agent','plans the query using your AI provider (OpenRouter, Gemini, Ollama...)',{fill:C.vioBg,stroke:'#c8b3f5',act:{fill:'#e3d4ff',stroke:C.vio}});
+box('na',630,190,330,56,'No agent needed','the AI app\'s own model writes the SQL',{fill:'#fff',stroke:C.line,dash:'5 4',act:{fill:'#fff',stroke:C.blue}});
+// engine rows
+box('t',40,308,920,52,'Tools','list_tables · describe_tables · get_relationships · execute_query · explain_query');
+box('sf',40,382,920,52,'Safety','SQL validator (one SELECT only) → row, size and time limits');
+box('ad',40,456,920,52,'Database adapters','MySQL / MariaDB · PostgreSQL: read-only session, always rolled back');
+// db
+box('db',380,552,240,52,'Your database','read-only account',{fill:'#fff'});
+// two lanes per column: request goes down (blue, left), response comes up (green, right)
+const arrow=(x,y,dir,c)=>el('path',{d:`M${x-5} ${y-dir*6} L${x} ${y} L${x+5} ${y-dir*6} Z`,fill:c});
+function lane(x,y1,y2,dash){
+  el('line',{x1:x-8,y1,x2:x-8,y2,stroke:'#c6dafc','stroke-width':2,'stroke-dasharray':dash||''});arrow(x-8,y2,1,'#c6dafc');
+  el('line',{x1:x+8,y1,x2:x+8,y2,stroke:'#b9e5c5','stroke-width':2,'stroke-dasharray':dash||''});arrow(x+8,y1,-1,'#b9e5c5');
+}
+[165,445,795].forEach(x=>{lane(x,98,112);});
+[165,445].forEach(x=>{lane(x,164,190);lane(x,246,308);});
+lane(795,164,308,'4 4');
+[[360,382],[434,456],[508,552]].forEach(([y1,y2])=>lane(500,y1,y2));
+// moving dot + label
+const trail=el('path',{d:'',stroke:C.blue,'stroke-width':3,fill:'none','stroke-linecap':'round','stroke-linejoin':'round',opacity:.4});svg.insertBefore(trail,svg.firstChild);
+const dot=el('circle',{r:9,fill:C.blue,cx:-50,cy:-50});
+const pill=el('g',{opacity:0});const pr=el('rect',{rx:9,height:20,fill:C.ink},pill);const pt=el('text',{'font-size':12,'font-weight':600,fill:'#fff','text-anchor':'middle',y:14},pill);
+const cap=el('text',{x:500,y:640,'text-anchor':'middle','font-size':15,fill:C.ink,'font-weight':500});
+const cap2=el('text',{x:500,y:662,'text-anchor':'middle','font-size':12.5,fill:C.mut});
+// scenes
+const SCENES=[
+ {x:165,c:'c0',stops:['c0','i0','ag','t','sf','ad','db'],q:'How many students are enrolled?',qs:'typed in the terminal',
+  a:'12 students are enrolled.',as:'answer printed in the terminal',
+  down:['question','question','tool call','SQL','checked SQL','read-only','read-only'],up:['rows','rows','rows, capped','rows, capped','tool result','plain answer','answer'],
+  cap:'CLI: ask a question in the terminal',cap2:'The agent plans the SQL, every query passes the same checks, and the answer comes back in plain language.'},
+ {x:445,c:'c1',stops:['c1','i1','ag','t','sf','ad','db'],q:'agent.ask("How many students?")',qs:'in your application',
+  a:'result.text = "12 students are enrolled."',as:'returned to your code',
+  down:['question','question','tool call','SQL','checked SQL','read-only','read-only'],up:['rows','rows','rows, capped','rows, capped','tool result','plain answer','answer'],
+  cap:'SDK: call the agent from your TypeScript code',cap2:'Same agent, same engine, embedded in your application.'},
+ {x:795,c:'c2',stops:['c2','i2','na','t','sf','ad','db'],q:'How many students are enrolled?',qs:'you ask the AI app',
+  a:'12 students are enrolled.',as:'the app\'s own model writes the answer',
+  down:['tool call','tool call','tool call','SQL','checked SQL','read-only','read-only'],up:['rows','rows','rows, capped','rows, capped','tool result','tool result','tool result'],
+  cap:'MCP: your AI app uses the tools directly',cap2:'The app\'s own model writes the SQL and the final answer; dbask offers only the safe, read-only tools. No AI key needed.'}
+];
+const cy=id=>nodes[id].y+nodes[id].h/2;
+const D=8.2,TOTAL=D*SCENES.length;
+const ease=u=>u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;
+function setNode(id,on,col){const n=nodes[id];n.r.setAttribute('fill',on?(col&&col.fill||n.act.fill):n.base.fill);n.r.setAttribute('stroke',on?(col&&col.stroke||n.act.stroke):n.base.stroke);n.r.setAttribute('stroke-width',on?2.5:1.5);}
+const GAPS=[104,177,277,371,445,530];           // vertical centres of the gaps between boxes, top to bottom
+const path=(S,dir)=>{                          // dir -1: down lane (left), +1: up lane (right)
+  const dx=dir*8,p=[];S.stops.forEach(id=>{if(id==='db')p.push({x:500+dx,y:cy('ad'),n:null});p.push({x:(id==='db'?500:S.x)+dx,y:cy(id),n:id});});return p;};
+function pointAt(p,pos){const n=p.length-1,seg=Math.min(Math.floor(pos),n-1),f=pos-seg;const A=p[seg],B=p[seg+1];return{x:A.x+(B.x-A.x)*f,y:A.y+(B.y-A.y)*f,seg};}
+function trailD(p,pos){const P=pointAt(p,pos);let d=`M${p[0].x} ${p[0].y}`;for(let i=1;i<=P.seg;i++)d+=` L${p[i].x} ${p[i].y}`;return d+` L${P.x} ${P.y}`;}
+const trailU=el('path',{d:'',stroke:C.grn,'stroke-width':3,fill:'none','stroke-linecap':'round','stroke-linejoin':'round',opacity:.45});svg.insertBefore(trailU,svg.firstChild);
+function gapLabel(p,seg,lab,x0){ // put the label in the gap that the segment ends in
+  const mid=(p[seg].y+p[seg+1].y)/2;const gy=GAPS.reduce((b,g)=>Math.abs(g-mid)<Math.abs(b-mid)?g:b,GAPS[0]);return gy;}
+function draw(T){
+  T=T%TOTAL;const si=Math.floor(T/D),t=T-si*D,S=SCENES[si];
+  Object.keys(nodes).forEach(k=>{setNode(k,false);});
+  const DEF={c0:'Terminal',c1:'Your TypeScript app',c2:'AI app (Claude Desktop, Cursor, Zed)'};
+  Object.keys(DEF).forEach(k=>{nodes[k].t1.textContent=DEF[k];nodes[k].t2.textContent='';});
+  const caller=nodes[S.c];caller.t1.textContent=S.q;caller.t2.textContent=S.qs;
+  const pd=path(S,-1),pu=path(S,1).reverse().map(p=>p),n=pd.length-1;
+  const t0=.8,t1=3.6,t2=4.3,t3=7.1;               // start hold, down, hold at the database, up
+  let phase,pos;
+  if(t<t0){phase='start';pos=0}
+  else if(t<t1){phase='down';pos=ease((t-t0)/(t1-t0))*n}
+  else if(t<t2){phase='hold';pos=n}
+  else if(t<t3){phase='up';pos=ease((t-t2)/(t3-t2))*n}
+  else{phase='end';pos=n}
+  const down=phase==='start'||phase==='down'||phase==='hold';
+  const P=pointAt(down?pd:pu,pos),path_=down?pd:pu;
+  // highlight
+  if(down){pd.forEach((q,i)=>{if(q.n&&(phase==='start'?i<=1:i<=pos+.02))setNode(q.n,true);});}
+  else{const G={fill:C.grnBg,stroke:C.grn};pu.forEach((q,i)=>{if(q.n&&(phase==='end'||i<=pos+.02))setNode(q.n,true,G);});}
+  dot.setAttribute('cx',phase==='end'?-50:P.x);dot.setAttribute('cy',P.y);dot.setAttribute('fill',down?C.blue:C.grn);
+  // trails: request trail stays faint during the response
+  trail.setAttribute('stroke',C.blue);trail.setAttribute('opacity',down?.4:.18);
+  trail.setAttribute('d',phase==='start'?'':trailD(pd,down?pos:n));
+  trailU.setAttribute('d',(phase==='up'||phase==='end')?trailD(pu,phase==='end'?n:pos):'');
+  // pill label
+  let lab='',gy=0,px=0;
+  const hops=pd.length-1;                          // 7 points incl. bend => 7 segments
+  if(phase==='down'||phase==='hold')lab=S.down[phase==='hold'?6:Math.min(P.seg,6)];
+  if(phase==='up')lab=S.up[Math.min(P.seg,6)];
+  if(phase==='start'||phase==='end')lab='';
+  const w=lab?lab.length*6.6+20:0;pr.setAttribute('width',w);pr.setAttribute('x',-w/2);pt.textContent=lab;
+  pr.setAttribute('fill',down?C.blue:C.grn);
+  if(lab){const mid=(path_[P.seg].y+path_[P.seg+1].y)/2;gy=GAPS.reduce((b,g)=>Math.abs(g-mid)<Math.abs(b-mid)?g:b,GAPS[0]);
+    const low=down?P.seg>=5:P.seg<=1;if(low)gy=530;
+    const cx=(low?500:S.x);px=down?cx-14-w/2:cx+14+w/2;}
+  pill.setAttribute('transform',`translate(${px},${gy-10})`);pill.setAttribute('opacity',lab?1:0);
+  // at the end the caller shows the answer
+  if(phase==='end'||(phase==='up'&&pos>=n-.15)){caller.t1.textContent=S.a;caller.t2.textContent=S.as;}
+  // payload note at the database
+  note.setAttribute('opacity',(phase==='hold'||(phase==='up'&&pos<1.2))?1:0);
+  cap.textContent=S.cap;cap2.textContent=S.cap2;
+}
+const note=el('text',{x:640,y:583,'font-size':12.5,fill:C.mut,opacity:0});note.textContent='SELECT COUNT(*) returns 12';
+window.draw=draw;window.TOTAL=TOTAL;draw(0);
+</script></body></html>
